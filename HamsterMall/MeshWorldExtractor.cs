@@ -272,13 +272,15 @@ namespace HamsterMall
 
             if (m.geoms.Count > 0)
             {
-                var meshBuilder = new MeshBuilder<VertexPositionNormal, VertexTexture1, VertexEmpty>(m.name);
-
+                // Loop through every single piece of geometry
                 foreach (var g in m.geoms)
                 {
+                    // Create a brand NEW mesh specifically for this geom, using its exact name!
+                    var meshBuilder = new MeshBuilder<VertexPositionNormal, VertexTexture1, VertexEmpty>(g.name);
+
                     var material = new MaterialBuilder(g.texture ?? "Default").WithBaseColor(g.diffuse);
 
-                    // --- TEXTURE LOADING LOGIC ---
+                    // Texture Loading
                     if (!string.IsNullOrEmpty(g.texture))
                     {
                         string finalTexturePath = "";
@@ -342,17 +344,20 @@ namespace HamsterMall
                             primitive.AddTriangle(pA, pB, pC);
                         }
                     }
-                }
 
-                // Lock the mesh into the scene based on the checkbox
-                if (useHierarchy)
-                {
-                    sceneBuilder.AddRigidMesh(meshBuilder, currentNode);
-                }
-                else
-                {
-                    // If false, just dump it directly into the center of the world with no parent
-                    sceneBuilder.AddRigidMesh(meshBuilder, Matrix4x4.Identity);
+                    // Attach it as a completely separate object
+                    if (useHierarchy)
+                    {
+                        // Put it inside the spatial "Chunk" folder
+                        var geomNode = currentNode.CreateNode(g.name);
+                        sceneBuilder.AddRigidMesh(meshBuilder, geomNode);
+                    }
+                    else
+                    {
+                        // Put it in the flat root list
+                        var flatNode = parentNode.CreateNode(g.name);
+                        sceneBuilder.AddRigidMesh(meshBuilder, flatNode);
+                    }
                 }
             }
 
@@ -381,8 +386,11 @@ namespace HamsterMall
             {
                 geom currentGeom = new geom { strips = new List<strip>() };
 
-                string nameFromGeom = ReadGameString(reader);
-                if (g == 0) currentMesh.name = nameFromGeom;
+                // Save the exact name directly to the geom!
+                currentGeom.name = ReadGameString(reader);
+
+                // Let's name the parent folder after the first geom just to keep the hierarchy readable
+                if (g == 0) currentMesh.name = "Chunk_" + currentGeom.name;
 
                 currentGeom.ambient = ReadVector4(reader);
                 currentGeom.diffuse = ReadVector4(reader);

@@ -28,6 +28,7 @@ namespace HamsterMall
 
     public struct geom
     {
+        public string name;
         public Vector4 ambient;
         public Vector4 diffuse;
         public Vector4 specular;
