@@ -45,6 +45,8 @@ namespace HamsterMall
             this.button2 = new System.Windows.Forms.Button();
             this.meshworld_label = new System.Windows.Forms.Label();
             this.loadMeshworld = new System.Windows.Forms.Button();
+            this.textureFolder_button = new System.Windows.Forms.Button();
+            this.textures_label = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.Ambient)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.Background)).BeginInit();
             this.tabControl1.SuspendLayout();
@@ -157,6 +159,8 @@ namespace HamsterMall
             // 
             // tabPage2
             // 
+            this.tabPage2.Controls.Add(this.textures_label);
+            this.tabPage2.Controls.Add(this.textureFolder_button);
             this.tabPage2.Controls.Add(this.button2);
             this.tabPage2.Controls.Add(this.meshworld_label);
             this.tabPage2.Controls.Add(this.loadMeshworld);
@@ -181,7 +185,7 @@ namespace HamsterMall
             // meshworld_label
             // 
             this.meshworld_label.AutoSize = true;
-            this.meshworld_label.Location = new System.Drawing.Point(6, 111);
+            this.meshworld_label.Location = new System.Drawing.Point(6, 61);
             this.meshworld_label.Name = "meshworld_label";
             this.meshworld_label.Size = new System.Drawing.Size(0, 13);
             this.meshworld_label.TabIndex = 1;
@@ -195,6 +199,24 @@ namespace HamsterMall
             this.loadMeshworld.Text = "Load MESHWORLD";
             this.loadMeshworld.UseVisualStyleBackColor = true;
             this.loadMeshworld.Click += new System.EventHandler(this.meshWorldLoad_Click);
+            // 
+            // textureFolder_button
+            // 
+            this.textureFolder_button.Location = new System.Drawing.Point(9, 108);
+            this.textureFolder_button.Name = "textureFolder_button";
+            this.textureFolder_button.Size = new System.Drawing.Size(140, 47);
+            this.textureFolder_button.TabIndex = 3;
+            this.textureFolder_button.Text = "Select Textures Folder";
+            this.textureFolder_button.UseVisualStyleBackColor = true;
+            this.textureFolder_button.Click += new System.EventHandler(this.textureFolder_Click);
+            // 
+            // textures_label
+            // 
+            this.textures_label.AutoSize = true;
+            this.textures_label.Location = new System.Drawing.Point(6, 158);
+            this.textures_label.Name = "textures_label";
+            this.textures_label.Size = new System.Drawing.Size(0, 13);
+            this.textures_label.TabIndex = 4;
             // 
             // HamsterMall
             // 
@@ -233,6 +255,8 @@ namespace HamsterMall
         private System.Windows.Forms.Button button2;
         private System.Windows.Forms.Label meshworld_label;
         private System.Windows.Forms.Button loadMeshworld;
+        private System.Windows.Forms.Label textures_label;
+        private System.Windows.Forms.Button textureFolder_button;
     }
 }
 

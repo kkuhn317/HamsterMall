@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
+using System.Drawing;
 
 namespace HamsterMall
 {
@@ -13,7 +14,7 @@ namespace HamsterMall
     {
         public static string LastSuccessfulAction = "Starting extraction...";
 
-        public static void ExtractToGLTF(string inputMeshWorldPath, string outputGltfPath)
+        public static void ExtractToGLTF(string inputMeshWorldPath, string outputGltfPath, string customTextureDir)
         {
             List<Vertex> verts = new List<Vertex>();
             List<mesh> meshes = new List<mesh>();
@@ -103,7 +104,69 @@ namespace HamsterMall
                 foreach (var g in m.geoms)
                 {
                     var material = new MaterialBuilder(g.texture ?? "Default")
-                        .WithBaseColor(g.diffuse);
+    .WithBaseColor(g.diffuse);
+
+                    if (!string.IsNullOrEmpty(g.texture))
+                    {
+                        string finalTexturePath = "";
+
+                        // 1. Try the folder the user manually selected in the UI
+                        if (!string.IsNullOrEmpty(customTextureDir))
+                        {
+                            finalTexturePath = Path.Combine(customTextureDir, g.texture);
+                        }
+                        else
+                        {
+                            // 2. Fallback: Try the official game structure (Sibling 'Textures' folder)
+                            string meshWorldDir = Path.GetDirectoryName(inputMeshWorldPath);
+                            string parentDir = Directory.GetParent(meshWorldDir)?.FullName ?? meshWorldDir;
+                            finalTexturePath = Path.Combine(parentDir, "Textures", g.texture);
+
+                            // 3. Fallback 2: Try the custom exporter structure (Child 'textures' folder)
+                            if (!File.Exists(finalTexturePath))
+                            {
+                                finalTexturePath = Path.Combine(meshWorldDir, "textures", g.texture);
+                            }
+                        }
+
+                        // Embed the image if we successfully found it!
+                        // Embed the image if we successfully found it!
+                        if (File.Exists(finalTexturePath))
+                        {
+                            string ext = Path.GetExtension(finalTexturePath).ToLower();
+
+                            // glTF natively supports PNG and JPG
+                            if (ext == ".png" || ext == ".jpg" || ext == ".jpeg")
+                            {
+                                material.WithBaseColor(finalTexturePath);
+                            }
+                            else
+                            {
+                                // If it's a BMP (or anything else), convert it to a PNG in RAM before embedding!
+                                try
+                                {
+                                    using (var bitmap = new Bitmap(finalTexturePath))
+                                    using (var ms = new MemoryStream())
+                                    {
+                                        // Save as PNG into the memory stream
+                                        bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+
+                                        // Create a SharpGLTF MemoryImage from the raw PNG bytes
+                                        var memImage = new SharpGLTF.Memory.MemoryImage(ms.ToArray());
+                                        material.WithBaseColor(memImage);
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    Console.WriteLine($"[WARNING] Could not convert texture {g.texture}: {ex.Message}");
+                                }
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[WARNING] Could not find texture: {g.texture}");
+                        }
+                    }
 
                     var primitive = meshBuilder.UsePrimitive(material);
 
@@ -144,7 +207,7 @@ namespace HamsterMall
             // 1. Read Bounding Box
             reader.ReadBytes(24);
 
-            // 2. The 4-Byte Secret!
+            // 2. Read Child Count
             int childCount = reader.ReadInt32();
             int geomCount = 0;
 
@@ -225,8 +288,15 @@ namespace HamsterMall
                 int vB = s.vertexOffset + i + 1;
                 int vC = s.vertexOffset + i + 2;
 
-                if (i % 2 == 0) triangles.Add((vA, vB, vC));
-                else triangles.Add((vA, vC, vB));
+                // Weird winding order
+                if (i % 2 == 0)
+                {
+                    triangles.Add((vA, vC, vB));
+                }
+                else
+                {
+                    triangles.Add((vA, vB, vC));
+                }
             }
             return triangles;
         }

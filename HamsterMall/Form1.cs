@@ -17,6 +17,7 @@ namespace HamsterMall
     public partial class HamsterMall : Form
     {
         private string loadedMeshWorldPath = "";
+        private string loadedTexturePath = "";
 
         public HamsterMall()
         {
@@ -84,6 +85,20 @@ namespace HamsterMall
             }
         }
 
+        private void textureFolder_Click(object sender, EventArgs e)
+        {
+            using (FolderBrowserDialog folderDialog = new FolderBrowserDialog())
+            {
+                folderDialog.Description = "Select the Hamsterball Textures folder";
+                if (folderDialog.ShowDialog() == DialogResult.OK)
+                {
+                    loadedTexturePath = folderDialog.SelectedPath;
+                    //MessageBox.Show($"Textures folder set to:\n{loadedTexturePath}", "Success");
+                    textures_label.Text = loadedTexturePath;
+                }
+            }
+        }
+
         private void exportGLTF_Click(object sender, EventArgs e)
         {
             if (string.IsNullOrEmpty(loadedMeshWorldPath))
@@ -97,10 +112,11 @@ namespace HamsterMall
                 saveFileDialog.Filter = "glTF Binary (*.glb)|*.glb";
                 if (saveFileDialog.ShowDialog() == DialogResult.OK)
                 {
-                    MeshWorldExtractor.ExtractToGLTF(loadedMeshWorldPath, saveFileDialog.FileName);
+                    MeshWorldExtractor.ExtractToGLTF(loadedMeshWorldPath, saveFileDialog.FileName, loadedTexturePath);
                     MessageBox.Show("Extracted to glTF successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
         }
+        
     }
 }
