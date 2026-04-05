@@ -42,11 +42,12 @@ namespace HamsterMall
             this.tabControl1 = new System.Windows.Forms.TabControl();
             this.tabPage1 = new System.Windows.Forms.TabPage();
             this.tabPage2 = new System.Windows.Forms.TabPage();
+            this.textures_label = new System.Windows.Forms.Label();
+            this.textureFolder_button = new System.Windows.Forms.Button();
             this.button2 = new System.Windows.Forms.Button();
             this.meshworld_label = new System.Windows.Forms.Label();
             this.loadMeshworld = new System.Windows.Forms.Button();
-            this.textureFolder_button = new System.Windows.Forms.Button();
-            this.textures_label = new System.Windows.Forms.Label();
+            this.chkUseHierarchy = new System.Windows.Forms.CheckBox();
             ((System.ComponentModel.ISupportInitialize)(this.Ambient)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.Background)).BeginInit();
             this.tabControl1.SuspendLayout();
@@ -159,6 +160,7 @@ namespace HamsterMall
             // 
             // tabPage2
             // 
+            this.tabPage2.Controls.Add(this.chkUseHierarchy);
             this.tabPage2.Controls.Add(this.textures_label);
             this.tabPage2.Controls.Add(this.textureFolder_button);
             this.tabPage2.Controls.Add(this.button2);
@@ -171,6 +173,24 @@ namespace HamsterMall
             this.tabPage2.TabIndex = 1;
             this.tabPage2.Text = "Extract MESHWORLD";
             this.tabPage2.UseVisualStyleBackColor = true;
+            // 
+            // textures_label
+            // 
+            this.textures_label.AutoSize = true;
+            this.textures_label.Location = new System.Drawing.Point(6, 138);
+            this.textures_label.Name = "textures_label";
+            this.textures_label.Size = new System.Drawing.Size(0, 13);
+            this.textures_label.TabIndex = 4;
+            // 
+            // textureFolder_button
+            // 
+            this.textureFolder_button.Location = new System.Drawing.Point(6, 88);
+            this.textureFolder_button.Name = "textureFolder_button";
+            this.textureFolder_button.Size = new System.Drawing.Size(140, 47);
+            this.textureFolder_button.TabIndex = 3;
+            this.textureFolder_button.Text = "Select Textures Folder";
+            this.textureFolder_button.UseVisualStyleBackColor = true;
+            this.textureFolder_button.Click += new System.EventHandler(this.textureFolder_Click);
             // 
             // button2
             // 
@@ -200,23 +220,15 @@ namespace HamsterMall
             this.loadMeshworld.UseVisualStyleBackColor = true;
             this.loadMeshworld.Click += new System.EventHandler(this.meshWorldLoad_Click);
             // 
-            // textureFolder_button
+            // chkUseHierarchy
             // 
-            this.textureFolder_button.Location = new System.Drawing.Point(9, 108);
-            this.textureFolder_button.Name = "textureFolder_button";
-            this.textureFolder_button.Size = new System.Drawing.Size(140, 47);
-            this.textureFolder_button.TabIndex = 3;
-            this.textureFolder_button.Text = "Select Textures Folder";
-            this.textureFolder_button.UseVisualStyleBackColor = true;
-            this.textureFolder_button.Click += new System.EventHandler(this.textureFolder_Click);
-            // 
-            // textures_label
-            // 
-            this.textures_label.AutoSize = true;
-            this.textures_label.Location = new System.Drawing.Point(6, 158);
-            this.textures_label.Name = "textures_label";
-            this.textures_label.Size = new System.Drawing.Size(0, 13);
-            this.textures_label.TabIndex = 4;
+            this.chkUseHierarchy.AutoSize = true;
+            this.chkUseHierarchy.Location = new System.Drawing.Point(9, 164);
+            this.chkUseHierarchy.Name = "chkUseHierarchy";
+            this.chkUseHierarchy.Size = new System.Drawing.Size(146, 17);
+            this.chkUseHierarchy.TabIndex = 5;
+            this.chkUseHierarchy.Text = "Preserve Folder Structure";
+            this.chkUseHierarchy.UseVisualStyleBackColor = true;
             // 
             // HamsterMall
             // 
@@ -257,6 +269,7 @@ namespace HamsterMall
         private System.Windows.Forms.Button loadMeshworld;
         private System.Windows.Forms.Label textures_label;
         private System.Windows.Forms.Button textureFolder_button;
+        private System.Windows.Forms.CheckBox chkUseHierarchy;
     }
 }
 

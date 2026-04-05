@@ -19,14 +19,14 @@ namespace HamsterMall
     }
 
 
-    struct mesh
+    public class mesh
     {
         public string name;
         public List<geom> geoms;
-
+        public List<mesh> children = new List<mesh>();
     }
 
-    struct geom
+    public struct geom
     {
         public Vector4 ambient;
         public Vector4 diffuse;
@@ -38,7 +38,7 @@ namespace HamsterMall
         public List<strip> strips;
     }
 
-    struct strip
+    public struct strip
     {
         public int triangleCount;
         public int vertexOffset;
@@ -48,5 +48,21 @@ namespace HamsterMall
     {
         public string name;
         public List<Vertex> points;
+    }
+
+    public class RefPoint
+    {
+        public string name;
+        public System.Numerics.Vector3 position;
+        public System.Numerics.Vector3 rotation; // Euler angles in degrees
+        public geom properties;
+    }
+
+    public class LightObj
+    {
+        public int type;
+        public System.Numerics.Vector3 position;
+        public System.Numerics.Vector3 direction;
+        public System.Numerics.Vector3 color;
     }
 }

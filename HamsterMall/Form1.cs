@@ -107,16 +107,19 @@ namespace HamsterMall
                 return;
             }
 
+            // Grab the boolean from the checkbox!
+            bool keepFolders = chkUseHierarchy.Checked;
+
             using (SaveFileDialog saveFileDialog = new SaveFileDialog())
             {
                 saveFileDialog.Filter = "glTF Binary (*.glb)|*.glb";
                 if (saveFileDialog.ShowDialog() == DialogResult.OK)
                 {
-                    MeshWorldExtractor.ExtractToGLTF(loadedMeshWorldPath, saveFileDialog.FileName, loadedTexturePath);
+                    // Pass the boolean into the extractor!
+                    MeshWorldExtractor.ExtractToGLTF(loadedMeshWorldPath, saveFileDialog.FileName, loadedTexturePath, keepFolders);
                     MessageBox.Show("Extracted to glTF successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
         }
-        
     }
 }

@@ -555,37 +555,9 @@ namespace HamsterMall
                         }
                         GetIndexBuffer(Primitive, out List<(int A, int B, int C)> Indices);
 
-                        //TODO stripify triangles
-
                         Console.WriteLine("triangleCount:" + Indices.Count());
 
-                        // OLD WAY
-                        //foreach (var tri in Indices)
-                        //{
-                        //    Console.WriteLine("creating strip with count " + 1 + " and voffset " + verts.Count);
-                        //    g.strips.Add(new strip { triangleCount = 1, vertexOffset = verts.Count });
-                        //    Vector4 PosC = new Vector4(vs[tri.C].X, vs[tri.C].Y, vs[tri.C].Z, 1);
-                        //    Vector4 PosB = new Vector4(vs[tri.B].X, vs[tri.B].Y, vs[tri.B].Z, 1);
-                        //    Vector4 PosA = new Vector4(vs[tri.A].X, vs[tri.A].Y, vs[tri.A].Z, 1);
-                        //    PosC = Vector4.Transform(PosC, Node.WorldMatrix);
-                        //    PosB = Vector4.Transform(PosB, Node.WorldMatrix);
-                        //    PosA = Vector4.Transform(PosA, Node.WorldMatrix);
-                        //    if (texture != null)
-                        //    {
-                        //        verts.Add(new Vertex { X = PosC.X, Y = PosC.Y, Z = PosC.Z, NX = ns[tri.C].X, NY = ns[tri.C].Y, NZ = ns[tri.C].Z, U = uvs[tri.C].X, V = uvs[tri.C].Y }.Converted());
-                        //        verts.Add(new Vertex { X = PosB.X, Y = PosB.Y, Z = PosB.Z, NX = ns[tri.B].X, NY = ns[tri.B].Y, NZ = ns[tri.B].Z, U = uvs[tri.B].X, V = uvs[tri.B].Y }.Converted());
-                        //        verts.Add(new Vertex { X = PosA.X, Y = PosA.Y, Z = PosA.Z, NX = ns[tri.A].X, NY = ns[tri.A].Y, NZ = ns[tri.A].Z, U = uvs[tri.A].X, V = uvs[tri.A].Y }.Converted());
-                        //    }
-                        //    else
-                        //    {
-                        //        verts.Add(new Vertex { X = PosC.X, Y = PosC.Y, Z = PosC.Z, NX = ns[tri.C].X, NY = ns[tri.C].Y, NZ = ns[tri.C].Z, U = 1.0f, V = 1.0f }.Converted());
-                        //        verts.Add(new Vertex { X = PosB.X, Y = PosB.Y, Z = PosB.Z, NX = ns[tri.B].X, NY = ns[tri.B].Y, NZ = ns[tri.B].Z, U = 1.0f, V = 1.0f }.Converted());
-                        //        verts.Add(new Vertex { X = PosA.X, Y = PosA.Y, Z = PosA.Z, NX = ns[tri.A].X, NY = ns[tri.A].Y, NZ = ns[tri.A].Z, U = 1.0f, V = 1.0f }.Converted());
-                        //    }
-                        //}
-
-
-                        // Stripify Way
+                        // Stripify!!
                         List<List<int>> strips = GenerateVertexStrips(Indices);
 
                         foreach (var stripVerts in strips)
