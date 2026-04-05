@@ -7,11 +7,11 @@
       "RelativeMoniker": "D:0:0:{107A019C-3581-4831-A7DF-C653341C0775}|HamsterMall\\HamsterMall.csproj|solutionrelative:hamstermall\\meshworldextractor.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{107A019C-3581-4831-A7DF-C653341C0775}|HamsterMall\\HamsterMall.csproj|c:\\users\\matt\\documents\\hamstermall\\hamstermall\\meshworldexporter.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "AbsoluteMoniker": "D:0:0:{107A019C-3581-4831-A7DF-C653341C0775}|HamsterMall\\HamsterMall.csproj|C:\\Users\\matt\\Documents\\HamsterMall\\hamstermall\\meshworldexporter.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{107A019C-3581-4831-A7DF-C653341C0775}|HamsterMall\\HamsterMall.csproj|solutionrelative:hamstermall\\meshworldexporter.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{107A019C-3581-4831-A7DF-C653341C0775}|HamsterMall\\HamsterMall.csproj|c:\\users\\matt\\documents\\hamstermall\\hamstermall\\meshworldtypes.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "AbsoluteMoniker": "D:0:0:{107A019C-3581-4831-A7DF-C653341C0775}|HamsterMall\\HamsterMall.csproj|C:\\Users\\matt\\Documents\\HamsterMall\\hamstermall\\meshworldtypes.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{107A019C-3581-4831-A7DF-C653341C0775}|HamsterMall\\HamsterMall.csproj|solutionrelative:hamstermall\\meshworldtypes.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
@@ -19,7 +19,7 @@
       "RelativeMoniker": "D:0:0:{107A019C-3581-4831-A7DF-C653341C0775}|HamsterMall\\HamsterMall.csproj|solutionrelative:hamstermall\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{107A019C-3581-4831-A7DF-C653341C0775}|HamsterMall\\HamsterMall.csproj|c:\\users\\matt\\documents\\hamstermall\\hamstermall\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
+      "AbsoluteMoniker": "D:0:0:{107A019C-3581-4831-A7DF-C653341C0775}|HamsterMall\\HamsterMall.csproj|C:\\Users\\matt\\Documents\\HamsterMall\\hamstermall\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
       "RelativeMoniker": "D:0:0:{107A019C-3581-4831-A7DF-C653341C0775}|HamsterMall\\HamsterMall.csproj|solutionrelative:hamstermall\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
     },
     {
@@ -50,8 +50,7 @@
               "RelativeToolTip": "HamsterMall\\MeshWorldExporter.cs",
               "ViewState": "AgIAAFMBAAAAAAAAAAAqwGoBAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-05T03:03:51.265Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-05T03:03:51.265Z"
             },
             {
               "$type": "Document",
@@ -76,8 +75,7 @@
               "RelativeToolTip": "HamsterMall\\MeshWorldTypes.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAABIAAAAFAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-05T02:58:38.63Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-05T02:58:38.63Z"
             },
             {
               "$type": "Document",
@@ -89,8 +87,7 @@
               "RelativeToolTip": "HamsterMall\\CustomWriter.cs",
               "ViewState": "AgIAABUAAAAAAAAAAAAowDAAAAAfAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-05T01:08:11.913Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-05T01:08:11.913Z"
             },
             {
               "$type": "Document",
@@ -102,8 +99,7 @@
               "RelativeToolTip": "HamsterMall\\Program.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-05T01:08:15.247Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-05T01:08:15.247Z"
             }
           ]
         },
