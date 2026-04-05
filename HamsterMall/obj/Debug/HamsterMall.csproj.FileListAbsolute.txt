@@ -61,6 +61,7 @@ C:\Users\matt\Documents\HamsterMall\HamsterMall\obj\Debug\HamsterMall.HamsterMal
 C:\Users\matt\Documents\HamsterMall\HamsterMall\obj\Debug\HamsterMall.Properties.Resources.resources
 C:\Users\matt\Documents\HamsterMall\HamsterMall\obj\Debug\HamsterMall.csproj.GenerateResource.cache
 C:\Users\matt\Documents\HamsterMall\HamsterMall\obj\Debug\HamsterMall.csproj.CoreCompileInputs.cache
-C:\Users\matt\Documents\HamsterMall\HamsterMall\obj\Debug\HamsterMall.csproj.CopyComplete
 C:\Users\matt\Documents\HamsterMall\HamsterMall\obj\Debug\HamsterMall.exe
 C:\Users\matt\Documents\HamsterMall\HamsterMall\obj\Debug\HamsterMall.pdb
+C:\Users\matt\Documents\HamsterMall\HamsterMall\obj\Debug\HamsterMall.exe.config
+C:\Users\matt\Documents\HamsterMall\HamsterMall\obj\Debug\HamsterM.2E8A2573.Up2Date

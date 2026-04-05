@@ -674,79 +674,46 @@ namespace HamsterMall
 
 
                         // Stripify Way
-                        List<List<int>> strips = StripifyTriangles(Indices);
-                        foreach (var strip in strips)
+                        List<List<int>> strips = GenerateVertexStrips(Indices);
+
+                        foreach (var stripVerts in strips)
                         {
-                            Console.WriteLine("creating strip with count " + strip.Count + " and voffset " + verts.Count);
-                            g.strips.Add(new strip { triangleCount = strip.Count, vertexOffset = verts.Count });
-                            // Deal with 1st triangle
-                            var tri1 = Indices[strip[0]];
+                            // A valid strip of N vertices ALWAYS produces (N - 2) triangles
+                            g.strips.Add(new strip { triangleCount = stripVerts.Count - 2, vertexOffset = verts.Count });
 
-                            List<int> Points = new List<int>();
-                            int uniquePoint = -1;
-                            if (strip.Count() > 1)
-                            {
-                                var tri2 = Indices[strip[1]];
-                                uniquePoint = FindUniquePoint(tri2, tri1);
-                            } else
-                            {
-                                uniquePoint = tri1.C;
-                            }
-
-                            // Add points in correct order (hopefully)
-                            Points.Add(uniquePoint);
-                            if (tri1.A == uniquePoint) {
-                                Points.Add(tri1.C);
-                                Points.Add(tri1.B);
-                            }
-                            else if (tri1.B == uniquePoint) {
-                                Points.Add(tri1.A);
-                                Points.Add(tri1.C);
-                            }
-                            else if (tri1.C == uniquePoint) {
-                                Points.Add(tri1.B);
-                                Points.Add(tri1.A);
-                            }
-
-                            Console.WriteLine("1st tri points:" + String.Join(",", Points));
-
-                            foreach(int p in Points)
+                            foreach (int p in stripVerts)
                             {
                                 Vector4 Pos = new Vector4(vs[p].X, vs[p].Y, vs[p].Z, 1);
                                 Pos = Vector4.Transform(Pos, Node.WorldMatrix);
+
                                 if (texture != null)
                                 {
-                                    verts.Add(new Vertex { X = Pos.X, Y = Pos.Y, Z = Pos.Z, NX = ns[p].X, NY = ns[p].Y, NZ = ns[p].Z, U = uvs[p].X, V = uvs[p].Y }.Converted());
+                                    verts.Add(new Vertex
+                                    {
+                                        X = Pos.X,
+                                        Y = Pos.Y,
+                                        Z = Pos.Z,
+                                        NX = ns[p].X,
+                                        NY = ns[p].Y,
+                                        NZ = ns[p].Z,
+                                        U = uvs[p].X,
+                                        V = uvs[p].Y
+                                    }.Converted());
                                 }
                                 else
                                 {
-                                    verts.Add(new Vertex { X = Pos.X, Y = Pos.Y, Z = Pos.Z, NX = ns[p].X, NY = ns[p].Y, NZ = ns[p].Z, U = 1.0f, V = 1.0f }.Converted());
+                                    verts.Add(new Vertex
+                                    {
+                                        X = Pos.X,
+                                        Y = Pos.Y,
+                                        Z = Pos.Z,
+                                        NX = ns[p].X,
+                                        NY = ns[p].Y,
+                                        NZ = ns[p].Z,
+                                        U = 1.0f,
+                                        V = 1.0f
+                                    }.Converted());
                                 }
-                            }
-
-                            (int A, int B, int C) prevTri = tri1;
-
-                            foreach (var triIndex in strip.Skip(1))
-                            {
-                                Console.WriteLine("adding tri" + triIndex);
-                                var tri = Indices[triIndex];
-                                Console.WriteLine("prev: " + prevTri + " cur: " + tri);
-                                int p = FindUniquePoint(prevTri, tri);
-
-                                Console.WriteLine("p is" + p);
-
-                                Vector4 Pos = new Vector4(vs[p].X, vs[p].Y, vs[p].Z, 1);
-                                Pos = Vector4.Transform(Pos, Node.WorldMatrix);
-                                if (texture != null)
-                                {
-                                    verts.Add(new Vertex { X = Pos.X, Y = Pos.Y, Z = Pos.Z, NX = ns[p].X, NY = ns[p].Y, NZ = ns[p].Z, U = uvs[p].X, V = uvs[p].Y }.Converted());
-                                }
-                                else
-                                {
-                                    verts.Add(new Vertex { X = Pos.X, Y = Pos.Y, Z = Pos.Z, NX = ns[p].X, NY = ns[p].Y, NZ = ns[p].Z, U = 1.0f, V = 1.0f }.Converted());
-                                }
-
-                                prevTri = tri;
                             }
                         }
 
@@ -760,131 +727,137 @@ namespace HamsterMall
             return verts;
         }
 
-        private static List<List<int>> StripifyTriangles(List<(int A, int B, int C)> triangles)
+        private static List<List<int>> GenerateVertexStrips(List<(int A, int B, int C)> triangles)
         {
-            List<List<int>> strips = new List<List<int>>();
-            List<int> remainingTriangles = Enumerable.Range(0, triangles.Count).ToList();
-            Dictionary<int, List<int>> neighbors = new Dictionary<int, List<int>>();
+            List<List<int>> vertexStrips = new List<List<int>>();
+            HashSet<int> unvisited = new HashSet<int>(Enumerable.Range(0, triangles.Count));
 
-            // Populate neighbors dictionary
+            // Precompute an edge-to-triangle map so we can instantly find neighbors
+            // We use a tuple of (minVertex, maxVertex) so the edge direction doesn't matter
+            Dictionary<(int, int), List<int>> edgeToTriangles = new Dictionary<(int, int), List<int>>();
             for (int i = 0; i < triangles.Count; i++)
             {
-                neighbors[i] = new List<int>();
+                var t = triangles[i];
+                AddEdge(edgeToTriangles, t.A, t.B, i);
+                AddEdge(edgeToTriangles, t.B, t.C, i);
+                AddEdge(edgeToTriangles, t.C, t.A, i);
             }
 
-            for (int i = 0; i < triangles.Count() - 1; i++)
+            while (unvisited.Count > 0)
             {
-                (int A, int B, int C) tri1 = triangles[i];
-                for (int j = i + 1; j < triangles.Count(); j++)
+                // 1. Find the best starting triangle (the one with the fewest unvisited neighbors)
+                int bestStartTri = -1;
+                int minNeighbors = int.MaxValue;
+
+                foreach (int tIndex in unvisited)
                 {
-                    //Console.WriteLine("Comparing " + i + " & " + j);
-                    (int A, int B, int C) tri2 = triangles[j];
-                    int sharedPoints = 0;
+                    int neighborCount = 0;
+                    var t = triangles[tIndex];
+                    neighborCount += CountUnvisited(edgeToTriangles, t.A, t.B, unvisited, tIndex);
+                    neighborCount += CountUnvisited(edgeToTriangles, t.B, t.C, unvisited, tIndex);
+                    neighborCount += CountUnvisited(edgeToTriangles, t.C, t.A, unvisited, tIndex);
 
-                    if (tri1.A == tri2.A || tri1.A == tri2.B || tri1.A == tri2.C)
-                        sharedPoints++;
-
-                    if (tri1.B == tri2.A || tri1.B == tri2.B || tri1.B == tri2.C)
-                        sharedPoints++;
-
-                    if (tri1.C == tri2.A || tri1.C == tri2.B || tri1.C == tri2.C)
-                        sharedPoints++;
-
-                    // Triangles are considered neighbors if they share exactly 2 points
-                    if (sharedPoints == 2)
+                    if (neighborCount < minNeighbors)
                     {
-                        neighbors[i].Add(j);
-                        neighbors[j].Add(i);
-                        //Console.WriteLine("Triangles " + i + " & " + j + " are neighbors");
-                    }
-                }
-            }
-
-            while (remainingTriangles.Count > 0)
-            {
-                int smallestTriangleIndex = remainingTriangles[0];
-                int smallestNeighborCount = neighbors[smallestTriangleIndex].Count;
-
-                // Find triangle with the least neighbors
-                foreach (var index in remainingTriangles)
-                {
-                    int neighborCount = neighbors[index].Count;
-                    if (neighborCount < smallestNeighborCount)
-                    {
-                        smallestTriangleIndex = index;
-                        smallestNeighborCount = neighborCount;
+                        minNeighbors = neighborCount;
+                        bestStartTri = tIndex;
                     }
                 }
 
-                List<int> strip = new List<int>();
-                strip.Add(smallestTriangleIndex);
-                remainingTriangles.Remove(smallestTriangleIndex);
+                var startTri = triangles[bestStartTri];
 
-                //while (true && strip.Count() < 2)
-                while (true)
+                // 2. A triangle has 3 edges. We try all 3 valid winding permutations 
+                // to see which direction yields the longest continuous strip.
+                List<int> bestStrip = null;
+                List<int> bestTriPath = null;
+
+                // Using your corrected (C, B, A) winding order!
+                int[][] startPermutations = new int[][] {
+                    new int[] { startTri.C, startTri.B, startTri.A },
+                    new int[] { startTri.B, startTri.A, startTri.C },
+                    new int[] { startTri.A, startTri.C, startTri.B }
+                };
+
+                foreach (var startPerm in startPermutations)
                 {
-                    int currentTriangle = strip[strip.Count - 1];
-                    int nextTriangle = -1;
-                    int smallestNextNeighborCount = int.MaxValue;
+                    List<int> currentStrip = new List<int>(startPerm);
+                    List<int> currentTriPath = new List<int> { bestStartTri };
+                    HashSet<int> tempVisited = new HashSet<int> { bestStartTri };
 
-                    // Find next triangle with the least neighbors
-                    foreach (var neighbor in neighbors[currentTriangle])
+                    while (true)
                     {
-                        //Console.WriteLine("Checking neighbor " + neighbor + " from tri " + currentTriangle);
-                        if (remainingTriangles.Contains(neighbor))
+                        // The active edge is always the last two vertices
+                        int vA = currentStrip[currentStrip.Count - 2];
+                        int vB = currentStrip[currentStrip.Count - 1];
+                        var edgeKey = (Math.Min(vA, vB), Math.Max(vA, vB));
+
+                        int nextTriIndex = -1;
+
+                        // Find an unvisited triangle that shares this exact edge
+                        if (edgeToTriangles.ContainsKey(edgeKey))
                         {
-                            //Console.WriteLine("neighbor is still remaining");
-                            int neighborCount = neighbors[neighbor].Count;
-                            if (neighborCount < smallestNextNeighborCount)
+                            foreach (int nTri in edgeToTriangles[edgeKey])
                             {
-                                smallestNextNeighborCount = neighborCount;
-                                nextTriangle = neighbor;
+                                if (unvisited.Contains(nTri) && !tempVisited.Contains(nTri))
+                                {
+                                    nextTriIndex = nTri;
+                                    break;
+                                }
                             }
+                        }
+
+                        if (nextTriIndex != -1)
+                        {
+                            // We found a connecting triangle! Append its unique vertex.
+                            var nextTri = triangles[nextTriIndex];
+                            int vNew = nextTri.A;
+                            if (nextTri.B != vA && nextTri.B != vB) vNew = nextTri.B;
+                            if (nextTri.C != vA && nextTri.C != vB) vNew = nextTri.C;
+
+                            currentStrip.Add(vNew);
+                            currentTriPath.Add(nextTriIndex);
+                            tempVisited.Add(nextTriIndex);
+                        }
+                        else
+                        {
+                            // Dead end. We can't go any further in this direction.
+                            break;
                         }
                     }
 
-                    // Remove triangle from neighbors directory
-                    // This is probably not optimal, oh well
-                    neighbors.Remove(smallestTriangleIndex);
-                    foreach (var triNeighbors in neighbors)
+                    // If this path was longer than the others, save it
+                    if (bestStrip == null || currentStrip.Count > bestStrip.Count)
                     {
-                        triNeighbors.Value.Remove(currentTriangle);
+                        bestStrip = currentStrip;
+                        bestTriPath = currentTriPath;
                     }
-
-                    if (nextTriangle == -1)
-                    {
-                        break;
-                    }
-
-                    strip.Add(nextTriangle);
-                    remainingTriangles.Remove(nextTriangle);
                 }
 
-                strips.Add(strip);
-
-                Console.WriteLine("strip added of length" + strip.Count());
+                // 3. Commit the longest strip we found and mark its triangles as visited
+                vertexStrips.Add(bestStrip);
+                foreach (int tIndex in bestTriPath)
+                {
+                    unvisited.Remove(tIndex);
+                }
             }
 
-            return strips;
+            return vertexStrips;
         }
 
-        // Finds unique point in triangle 2 that is not in triangle 1 and returns it
-        private static int FindUniquePoint((int A, int B, int C) tri1, (int A, int B, int C) tri2)
+        // Helper method to populate the edge dictionary
+        private static void AddEdge(Dictionary<(int, int), List<int>> dict, int v1, int v2, int triIndex)
         {
-            if (tri2.A != tri1.A && tri2.A != tri1.B && tri2.A != tri1.C)
-            {
-                return tri2.A;
-            }
-            if (tri2.B != tri1.A && tri2.B != tri1.B && tri2.B != tri1.C)
-            {
-                return tri2.B;
-            }
-            if (tri2.C != tri1.A && tri2.C != tri1.B && tri2.C != tri1.C)
-            {
-                return tri2.C;
-            }
-            Console.Error.WriteLine("Could not find unique point!!");
-            return tri2.A;
+            var key = (Math.Min(v1, v2), Math.Max(v1, v2));
+            if (!dict.ContainsKey(key)) dict[key] = new List<int>();
+            dict[key].Add(triIndex);
+        }
+
+        // Helper method to count unvisited neighbors on a specific edge
+        private static int CountUnvisited(Dictionary<(int, int), List<int>> dict, int v1, int v2, HashSet<int> unvisited, int selfTri)
+        {
+            var key = (Math.Min(v1, v2), Math.Max(v1, v2));
+            if (!dict.ContainsKey(key)) return 0;
+            return dict[key].Count(t => t != selfTri && unvisited.Contains(t));
         }
 
 

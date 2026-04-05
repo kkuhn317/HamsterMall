@@ -1,0 +1,120 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\matt\\Documents\\HamsterMall\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{107A019C-3581-4831-A7DF-C653341C0775}|HamsterMall\\HamsterMall.csproj|c:\\users\\matt\\documents\\hamstermall\\hamstermall\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{107A019C-3581-4831-A7DF-C653341C0775}|HamsterMall\\HamsterMall.csproj|solutionrelative:hamstermall\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{107A019C-3581-4831-A7DF-C653341C0775}|HamsterMall\\HamsterMall.csproj|c:\\users\\matt\\documents\\hamstermall\\hamstermall\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
+      "RelativeMoniker": "D:0:0:{107A019C-3581-4831-A7DF-C653341C0775}|HamsterMall\\HamsterMall.csproj|solutionrelative:hamstermall\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{107A019C-3581-4831-A7DF-C653341C0775}|HamsterMall\\HamsterMall.csproj|c:\\users\\matt\\documents\\hamstermall\\hamstermall\\form1.resx||{FF4D6ACA-9352-4A5F-821E-F4D6EBDCAB11}",
+      "RelativeMoniker": "D:0:0:{107A019C-3581-4831-A7DF-C653341C0775}|HamsterMall\\HamsterMall.csproj|solutionrelative:hamstermall\\form1.resx||{FF4D6ACA-9352-4A5F-821E-F4D6EBDCAB11}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{107A019C-3581-4831-A7DF-C653341C0775}|HamsterMall\\HamsterMall.csproj|c:\\users\\matt\\documents\\hamstermall\\hamstermall\\form1.designer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{107A019C-3581-4831-A7DF-C653341C0775}|HamsterMall\\HamsterMall.csproj|solutionrelative:hamstermall\\form1.designer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{107A019C-3581-4831-A7DF-C653341C0775}|HamsterMall\\HamsterMall.csproj|c:\\users\\matt\\documents\\hamstermall\\hamstermall\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{107A019C-3581-4831-A7DF-C653341C0775}|HamsterMall\\HamsterMall.csproj|solutionrelative:hamstermall\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{107A019C-3581-4831-A7DF-C653341C0775}|HamsterMall\\HamsterMall.csproj|c:\\users\\matt\\documents\\hamstermall\\hamstermall\\customwriter.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{107A019C-3581-4831-A7DF-C653341C0775}|HamsterMall\\HamsterMall.csproj|solutionrelative:hamstermall\\customwriter.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "Form1.cs",
+              "DocumentMoniker": "C:\\Users\\matt\\Documents\\HamsterMall\\HamsterMall\\Form1.cs",
+              "RelativeDocumentMoniker": "HamsterMall\\Form1.cs",
+              "ToolTip": "C:\\Users\\matt\\Documents\\HamsterMall\\HamsterMall\\Form1.cs",
+              "RelativeToolTip": "HamsterMall\\Form1.cs",
+              "ViewState": "AgIAADoDAAAAAAAAAADwv+ECAAA1AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-05T01:08:58.626Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "Form1.resx",
+              "DocumentMoniker": "C:\\Users\\matt\\Documents\\HamsterMall\\HamsterMall\\Form1.resx",
+              "RelativeDocumentMoniker": "HamsterMall\\Form1.resx",
+              "ToolTip": "C:\\Users\\matt\\Documents\\HamsterMall\\HamsterMall\\Form1.resx",
+              "RelativeToolTip": "HamsterMall\\Form1.resx",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001005|",
+              "WhenOpened": "2026-04-05T01:08:21.772Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "Form1.Designer.cs",
+              "DocumentMoniker": "C:\\Users\\matt\\Documents\\HamsterMall\\HamsterMall\\Form1.Designer.cs",
+              "RelativeDocumentMoniker": "HamsterMall\\Form1.Designer.cs",
+              "ToolTip": "C:\\Users\\matt\\Documents\\HamsterMall\\HamsterMall\\Form1.Designer.cs",
+              "RelativeToolTip": "HamsterMall\\Form1.Designer.cs",
+              "ViewState": "AgIAABAAAAAAAAAAAAAgwAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-05T01:08:19.57Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "Program.cs",
+              "DocumentMoniker": "C:\\Users\\matt\\Documents\\HamsterMall\\HamsterMall\\Program.cs",
+              "RelativeDocumentMoniker": "HamsterMall\\Program.cs",
+              "ToolTip": "C:\\Users\\matt\\Documents\\HamsterMall\\HamsterMall\\Program.cs",
+              "RelativeToolTip": "HamsterMall\\Program.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-05T01:08:15.247Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "CustomWriter.cs",
+              "DocumentMoniker": "C:\\Users\\matt\\Documents\\HamsterMall\\HamsterMall\\CustomWriter.cs",
+              "RelativeDocumentMoniker": "HamsterMall\\CustomWriter.cs",
+              "ToolTip": "C:\\Users\\matt\\Documents\\HamsterMall\\HamsterMall\\CustomWriter.cs",
+              "RelativeToolTip": "HamsterMall\\CustomWriter.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-05T01:08:11.913Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "Form1.cs [Design]",
+              "DocumentMoniker": "C:\\Users\\matt\\Documents\\HamsterMall\\HamsterMall\\Form1.cs",
+              "RelativeDocumentMoniker": "HamsterMall\\Form1.cs",
+              "ToolTip": "C:\\Users\\matt\\Documents\\HamsterMall\\HamsterMall\\Form1.cs [Design]",
+              "RelativeToolTip": "HamsterMall\\Form1.cs [Design]",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-05T01:08:08.458Z",
+              "EditorCaption": " [Design]"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
