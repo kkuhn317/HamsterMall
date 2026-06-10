@@ -42,13 +42,13 @@ namespace HamsterMall
             this.tabControl1 = new System.Windows.Forms.TabControl();
             this.tabPage1 = new System.Windows.Forms.TabPage();
             this.tabPage2 = new System.Windows.Forms.TabPage();
+            this.label3 = new System.Windows.Forms.Label();
             this.chkUseHierarchy = new System.Windows.Forms.CheckBox();
             this.textures_label = new System.Windows.Forms.Label();
             this.textureFolder_button = new System.Windows.Forms.Button();
             this.button2 = new System.Windows.Forms.Button();
             this.meshworld_label = new System.Windows.Forms.Label();
             this.loadMeshworld = new System.Windows.Forms.Button();
-            this.label3 = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.Ambient)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.Background)).BeginInit();
             this.tabControl1.SuspendLayout();
@@ -91,6 +91,10 @@ namespace HamsterMall
             // saveFileDialog1
             // 
             this.saveFileDialog1.DefaultExt = "MESHWORLD";
+            // 
+            // colorDialog1
+            // 
+            this.colorDialog1.FullOpen = true;
             // 
             // Ambient
             // 
@@ -176,6 +180,15 @@ namespace HamsterMall
             this.tabPage2.Text = "Extract MESHWORLD";
             this.tabPage2.UseVisualStyleBackColor = true;
             // 
+            // label3
+            // 
+            this.label3.AutoSize = true;
+            this.label3.Location = new System.Drawing.Point(9, 184);
+            this.label3.Name = "label3";
+            this.label3.Size = new System.Drawing.Size(143, 13);
+            this.label3.TabIndex = 8;
+            this.label3.Text = "Not available right now, sorry";
+            // 
             // chkUseHierarchy
             // 
             this.chkUseHierarchy.AutoSize = true;
@@ -232,15 +245,6 @@ namespace HamsterMall
             this.loadMeshworld.Text = "Load MESHWORLD";
             this.loadMeshworld.UseVisualStyleBackColor = true;
             this.loadMeshworld.Click += new System.EventHandler(this.meshWorldLoad_Click);
-            // 
-            // label3
-            // 
-            this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(9, 184);
-            this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(143, 13);
-            this.label3.TabIndex = 8;
-            this.label3.Text = "Not available right now, sorry";
             // 
             // HamsterMall
             // 

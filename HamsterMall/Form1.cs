@@ -30,17 +30,23 @@ namespace HamsterMall
 
         private void Ambient_Click(object sender, EventArgs e)
         {
-            if (colorDialog1.ShowDialog() == DialogResult.OK)
+            using (Cyotek.Windows.Forms.ColorPickerDialog dialog = new Cyotek.Windows.Forms.ColorPickerDialog())
             {
-                Ambient.BackColor = colorDialog1.Color;
+                if (dialog.ShowDialog() == DialogResult.OK)
+                {
+                    Ambient.BackColor = dialog.Color;
+                }
             }
         }
 
         private void Background_Click(object sender, EventArgs e)
         {
-            if (colorDialog1.ShowDialog() == DialogResult.OK)
+            using (Cyotek.Windows.Forms.ColorPickerDialog dialog = new Cyotek.Windows.Forms.ColorPickerDialog())
             {
-                Background.BackColor = colorDialog1.Color;
+                if (dialog.ShowDialog() == DialogResult.OK)
+                {
+                    Background.BackColor = dialog.Color;
+                }
             }
         }
 
