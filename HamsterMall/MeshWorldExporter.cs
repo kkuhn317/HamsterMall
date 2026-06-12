@@ -370,100 +370,12 @@ namespace HamsterMall
                     int length = m.name.LastIndexOf(".");
                     length = length == -1 ? m.name.Length : length;
                     writer.Write(m.name.Substring(0, length));
-                    //If there is no emission property
-                    if (g.emissive == Vector4.Zero || g.emissive == new Vector4(0, 0, 0, 1))
-                    {
-                        if (m.name.StartsWith("T:") && m.name != "T:GOALAREA" && g.texture != "OddArrow.png" && g.texture != "YellowArrow.png")
-                        {
-                            writer.Write(1.0f);
-                            writer.Write(1.0f);
-                            writer.Write(1.0f);
-                            writer.Write(0.5f);//ambient
-                            writer.Write(1.0f);
-                            writer.Write(1.0f);
-                            writer.Write(1.0f);
-                            writer.Write(0.5f);//diffuse
-                            writer.Write(g.specular);
-                            writer.Write(g.emissive);
-                        }
-                        else
-                        {
-                            //writer.Write(Vector4.Zero);//ambient
-                            writer.Write(g.diffuse);//ambient
-                            writer.Write(g.diffuse);//diffuse
-                            writer.Write(g.specular);//spec
-                            writer.Write(g.emissive);//emissive
-                        }
-                    }
-                    else //if there is an emission property
-                    {
-                        if (m.name.StartsWith("T:") && g.texture != null)
-                        {
-                            if (g.texture == "Decal_Start.png")
-                            {
-                                writer.Write(g.diffuse);//ambient
-                                writer.Write(g.diffuse);//diffuse
-                                writer.Write(g.specular);
-                                writer.Write(g.emissive);
-                            }
-                            else if (g.texture == "goal.png" || g.texture == "goal-round.png")
-                            {
-                                writer.Write(g.emissive);//ambient
-                                writer.Write(g.emissive);//diffuse
-                                writer.Write(g.specular);
-                                writer.Write(g.emissive);
-                            }
-                            else if (g.texture == "Decal_Warning.png")
-                            {
-                                writer.Write(0.5882353186607361f);
-                                writer.Write(0.5882353186607361f);
-                                writer.Write(0.5882353186607361f);
-                                writer.Write(1f);//ambient
-                                writer.Write(0.5882353186607361f);
-                                writer.Write(0.5882353186607361f);
-                                writer.Write(0.5882353186607361f);
-                                writer.Write(1f);//diffuse
-                                writer.Write(g.specular);
-                                writer.Write(0.9921569228172302f);
-                                writer.Write(0.9921569228172302f);
-                                writer.Write(0.9921569228172302f);
-                                writer.Write(1f);//emissive
 
-                            }
-                            else if (g.texture == "NeonArrow.png")
-                            {
-                                writer.Write(0.988235354423523f);
-                                writer.Write(1f);
-                                writer.Write(0);
-                                writer.Write(0.75f);//ambient
-                                writer.Write(0.988235354423523f);
-                                writer.Write(1f);
-                                writer.Write(0);
-                                writer.Write(0.75f);//diffuse
-                                writer.Write(g.specular);
-                                writer.Write(g.emissive.X);
-                                writer.Write(g.emissive.Y);
-                                writer.Write(g.emissive.Z);
-                                writer.Write(0.75f);
-                            }
-                            else
-                            {
-                                writer.Write(g.diffuse);//ambient
-                                writer.Write(g.diffuse);//diffuse
-                                writer.Write(g.specular);//spec
-                                writer.Write(g.emissive);//emissive
-                            }
-                        }
-                        else
-                        {
-                            //writer.Write(Vector4.Zero);//ambient
-                            writer.Write(g.diffuse);//ambient
-                            writer.Write(g.diffuse);//diffuse
-                            writer.Write(g.specular);//spec
-                            writer.Write(g.emissive);//emissive
-                        }
-                    }
-                    writer.Write(g.power);
+                    writer.Write(g.diffuse);//ambient
+                    writer.Write(g.diffuse);//diffuse
+                    writer.Write(g.specular);//spec
+                    writer.Write(g.emissive);//emissive
+                    writer.Write(g.power);  // specular shininess
                     writer.Write(0); //has reflection
 
                     if (g.texture != null)
