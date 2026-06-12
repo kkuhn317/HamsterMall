@@ -463,7 +463,7 @@ namespace HamsterMall
                             writer.Write(g.emissive);//emissive
                         }
                     }
-                    writer.Write(10f); // power?
+                    writer.Write(g.power);
                     writer.Write(0); //has reflection
 
                     if (g.texture != null)
@@ -522,14 +522,18 @@ namespace HamsterMall
 
                         // Specular
                         var metRoughChannel = Primitive.Material?.Channels?.FirstOrDefault(channel => channel.Key == "MetallicRoughness");
+
+                        float metallic = 0.0f;
                         float roughness = 1.0f;
+
                         if (metRoughChannel != null)
                         {
-                            // In the GLTF spec, Roughness is stored in the Green (Y) channel of the data vector
+                            // SharpGLTF stores the slider values inside a Vector4 called 'Parameter'
+                            metallic = metRoughChannel.Value.Parameter.X;
                             roughness = metRoughChannel.Value.Parameter.Y;
                         }
-                        float specIntensity = 1.0f - roughness;
-                        g.specular = new Vector4(specIntensity, specIntensity, specIntensity, 1.0f);
+
+                        g.specular = new Vector4(metallic, metallic, metallic, 1.0f);
 
                         var texture = Primitive.Material?.Channels?.FirstOrDefault(channel => channel.Key == "BaseColor").Texture;
                         if (texture != null)
@@ -551,6 +555,8 @@ namespace HamsterMall
                             }
 
                         }
+
+                        g.power = Math.Max(1.0f, (1.0f - roughness) * 100.0f);
 
                         GetVertexBuffer(Primitive, out List<Vector3> Vertices);
                         GetNormalBuffer(Primitive, out List<Vector3> Normals);
