@@ -520,7 +520,16 @@ namespace HamsterMall
 
                         g.emissive = Primitive.Material?.Channels?.First(channel => channel.Key == "Emissive").Parameter ?? Vector4.Zero;
 
-                        g.specular = Vector4.Zero;
+                        // Specular
+                        var metRoughChannel = Primitive.Material?.Channels?.FirstOrDefault(channel => channel.Key == "MetallicRoughness");
+                        float roughness = 1.0f;
+                        if (metRoughChannel != null)
+                        {
+                            // In the GLTF spec, Roughness is stored in the Green (Y) channel of the data vector
+                            roughness = metRoughChannel.Value.Parameter.Y;
+                        }
+                        float specIntensity = 1.0f - roughness;
+                        g.specular = new Vector4(specIntensity, specIntensity, specIntensity, 1.0f);
 
                         var texture = Primitive.Material?.Channels?.FirstOrDefault(channel => channel.Key == "BaseColor").Texture;
                         if (texture != null)
