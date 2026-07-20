@@ -42,7 +42,6 @@ namespace HamsterMall
             this.tabControl1 = new System.Windows.Forms.TabControl();
             this.tabPage1 = new System.Windows.Forms.TabPage();
             this.tabPage2 = new System.Windows.Forms.TabPage();
-            this.label3 = new System.Windows.Forms.Label();
             this.chkUseHierarchy = new System.Windows.Forms.CheckBox();
             this.textures_label = new System.Windows.Forms.Label();
             this.textureFolder_button = new System.Windows.Forms.Button();
@@ -165,7 +164,6 @@ namespace HamsterMall
             // 
             // tabPage2
             // 
-            this.tabPage2.Controls.Add(this.label3);
             this.tabPage2.Controls.Add(this.chkUseHierarchy);
             this.tabPage2.Controls.Add(this.textures_label);
             this.tabPage2.Controls.Add(this.textureFolder_button);
@@ -179,15 +177,6 @@ namespace HamsterMall
             this.tabPage2.TabIndex = 1;
             this.tabPage2.Text = "Extract MESHWORLD";
             this.tabPage2.UseVisualStyleBackColor = true;
-            // 
-            // label3
-            // 
-            this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(9, 184);
-            this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(143, 13);
-            this.label3.TabIndex = 8;
-            this.label3.Text = "Not available right now, sorry";
             // 
             // chkUseHierarchy
             // 
@@ -219,7 +208,6 @@ namespace HamsterMall
             // 
             // button2
             // 
-            this.button2.Enabled = false;
             this.button2.Location = new System.Drawing.Point(9, 199);
             this.button2.Name = "button2";
             this.button2.Size = new System.Drawing.Size(143, 54);
@@ -286,7 +274,6 @@ namespace HamsterMall
         private System.Windows.Forms.Label textures_label;
         private System.Windows.Forms.Button textureFolder_button;
         private System.Windows.Forms.CheckBox chkUseHierarchy;
-        private System.Windows.Forms.Label label3;
     }
 }
 
