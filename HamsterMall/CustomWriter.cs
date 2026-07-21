@@ -1,16 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace HamsterMall
 {
     class CustomWriter : IDisposable
     {
-
         BinaryWriter Writer;
 
         public CustomWriter(Stream stream)
@@ -22,7 +18,6 @@ namespace HamsterMall
         {
             Writer?.Dispose();
         }
-
 
         public void Write(string s)
         {
@@ -52,6 +47,7 @@ namespace HamsterMall
             Writer.Write(v.U);
             Writer.Write(v.V);
         }
+
         public void Write(Vector4 v)
         {
             Writer.Write(v.X);

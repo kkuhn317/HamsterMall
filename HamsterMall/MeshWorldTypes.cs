@@ -55,7 +55,7 @@ namespace HamsterMall
     {
         public string name;
         public System.Numerics.Vector3 position;
-        public System.Numerics.Vector3 rotation; // Euler angles in degrees
+        public System.Numerics.Vector3 rotation; // Euler angles in degrees (RotZ, RotY, RotX)
         public geom properties;
     }
 

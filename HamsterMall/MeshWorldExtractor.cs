@@ -1,35 +1,63 @@
-using SharpGLTF.Geometry;
+﻿using SharpGLTF.Geometry;
 using SharpGLTF.Geometry.VertexTypes;
 using SharpGLTF.Materials;
 using SharpGLTF.Scenes;
+using SharpGLTF.Schema2;
+using SharpGLTF.Transforms;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Numerics;
 
 namespace HamsterMall
 {
     public class MeshWorldExtractor
     {
-        public static void ExtractToGLTF(string inputMeshWorldPath, string outputGltfPath, string customTextureDir, bool useHierarchy)
+        // Known folder node names that must NOT be treated as ref points
+        private static readonly HashSet<string> _folderNames = new HashSet<string>
         {
-            // Declare everything at the top so the whole method can see it
+            "RefPoints", "Splines", "Lights", "Level_Root"
+        };
+
+        // Collected during BuildGLTFNode, applied to Schema2.Material after ToGltf2()
+        // Only used in thorough mode
+        private class MaterialExtras
+        {
+            public string materialName;
+            public Vector4 ambient;
+            public Vector4 specular;
+            public float power;
+            public int hasReflection;
+        }
+
+        public static void ExtractToGLTF(string inputMeshWorldPath, string outputGltfPath, string customTextureDir, bool useHierarchy, bool thorough)
+        {
             List<Vertex> verts = new List<Vertex>();
             List<mesh> meshes = new List<mesh>();
             List<RefPoint> refPoints = new List<RefPoint>();
             List<spline> splines = new List<spline>();
             List<LightObj> lights = new List<LightObj>();
 
+            // Scene-level metadata
+            Vector3 backgroundColor = Vector3.Zero;
+            Vector3 ambientColor = Vector3.Zero;
+            Vector3 rootBoundMin = Vector3.Zero;
+            Vector3 rootBoundMax = Vector3.Zero;
+
+            // Material extras to apply after ToGltf2() (thorough mode only)
+            List<MaterialExtras> pendingMaterialExtras = thorough ? new List<MaterialExtras>() : null;
+
             using (FileStream fileStream = File.OpenRead(inputMeshWorldPath))
             using (BinaryReader reader = new BinaryReader(fileStream))
             {
-                // 1. READ META DATA AT THE VERY BEGINNING!
                 refPoints = ReadRefPoints(reader);
                 splines = ReadSplines(reader);
                 lights = ReadLights(reader);
 
-                // 2. Skip Background/Ambient Colors
-                reader.ReadBytes(24); // 6 floats
+                // 2. Read Background/Ambient Colors (6 floats = 24 bytes)
+                backgroundColor = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+                ambientColor = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
 
                 // 3. Read Vertices
                 int vertCount = reader.ReadInt32();
@@ -48,8 +76,9 @@ namespace HamsterMall
                     });
                 }
 
-                // 4. Read Root Bounding Cube
-                reader.ReadBytes(24);
+                // 4. Read Root Bounding Cube (6 floats = 24 bytes)
+                rootBoundMin = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+                rootBoundMax = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
 
                 // 5. Read Top-Level Meshes
                 int topLevelMeshCount = reader.ReadInt32();
@@ -57,41 +86,77 @@ namespace HamsterMall
                 {
                     meshes.Add(ReadMeshNode(reader));
                 }
-            } // End of BinaryReader
-
-            // --- BUILD THE GLTF HIERARCHY ---
-            var sceneBuilder = new SceneBuilder();
-
-            // Create a Master Collection to hold everything
-            var rootNode = new NodeBuilder("Level_Root");
-
-            // Kick off the recursive tree builder!
-            foreach (var m in meshes)
-            {
-                BuildGLTFNode(m, rootNode, sceneBuilder, verts, inputMeshWorldPath, customTextureDir, useHierarchy);
             }
 
-            // Convert the SceneBuilder into the final glTF Document
+            // --- BUILD THE GLTF HIERARCHY (Toolkit layer) ---
+
+            var sceneBuilder = new SceneBuilder();
+            var rootNode = new NodeBuilder("Level_Root");
+
+            foreach (var m in meshes)
+            {
+                BuildGLTFNode(m, rootNode, sceneBuilder, verts, inputMeshWorldPath, customTextureDir, useHierarchy, thorough, pendingMaterialExtras);
+            }
+
             var model = sceneBuilder.ToGltf2();
             var scene = model.DefaultScene;
 
-            // --- INJECT METADATA DIRECTLY INTO THE GLTF DOCUMENT ---
+            // --- APPLY MATERIAL EXTRAS (thorough mode only) ---
+            // MaterialBuilder (Toolkit) doesn't have Extras API, so we apply
+            // after ToGltf2() on Schema2.Material objects.
+            if (thorough && pendingMaterialExtras != null)
+            {
+                foreach (var matEx in pendingMaterialExtras)
+                {
+                    var mat = model.LogicalMaterials.FirstOrDefault(m => m.Name == matEx.materialName);
+                    if (mat != null)
+                    {
+                        var dict = mat.TryUseExtrasAsDictionary(true);
+                        dict["ambient"] = BuildVec4Dict(matEx.ambient);
+                        dict["specular"] = BuildVec4Dict(matEx.specular);
+                        dict["power"] = matEx.power;
+                        dict["hasReflection"] = matEx.hasReflection;
+                    }
+                }
+            }
 
-            // 1. Inject Ref Points
-            // If useHierarchy is true, create a folder at the Root of the scene. Otherwise, no folder.
+            // --- STORE SCENE-LEVEL METADATA AS MODEL EXTRAS ---
+
+            var modelExtras = model.TryUseExtrasAsDictionary(true);
+            modelExtras["backgroundColor"] = BuildVec3Dict(backgroundColor);
+            modelExtras["ambientColor"] = BuildVec3Dict(ambientColor);
+            modelExtras["rootBoundMin"] = BuildVec3Dict(rootBoundMin);
+            modelExtras["rootBoundMax"] = BuildVec3Dict(rootBoundMax);
+
+            // 1. Inject Ref Points (Schema2.Node — has TryUseExtrasAsDictionary ✓)
             var refFolder = useHierarchy ? scene.CreateNode("RefPoints") : null;
             foreach (var rp in refPoints)
             {
-                // Attach to the folder if it exists, otherwise attach directly to the scene
                 var rpNode = refFolder != null ? refFolder.CreateNode(rp.name) : scene.CreateNode(rp.name);
 
-                // Changed the diagonal 1s to 0.2f to scale down the Empty nodes
-                rpNode.LocalTransform = new System.Numerics.Matrix4x4(
-                    0.2f, 0, 0, 0,
-                    0, 0.2f, 0, 0,
-                    0, 0, 0.2f, 0,
-                    rp.position.X, rp.position.Y, rp.position.Z, 1
+                // Apply BOTH position and rotation from the ref point.
+                // MESHWORLD stores rotation as Euler degrees in (RotZ, RotY, RotX) order.
+                float rotRadZ = rp.rotation.X * ((float)Math.PI / 180.0f);
+                float rotRadY = rp.rotation.Y * ((float)Math.PI / 180.0f);
+                float rotRadX = rp.rotation.Z * ((float)Math.PI / 180.0f);
+                Quaternion quat = Quaternion.CreateFromYawPitchRoll(rotRadY, rotRadX, rotRadZ);
+
+                rpNode.LocalTransform = new AffineTransform(
+                    new Vector3(0.2f, 0.2f, 0.2f),
+                    quat,
+                    rp.position
                 );
+
+                // Store ref point material properties as node extras
+                var rpExtras = rpNode.TryUseExtrasAsDictionary(true);
+                rpExtras["hasColor"] = 1;
+                rpExtras["ambient"] = BuildVec4Dict(rp.properties.ambient);
+                rpExtras["diffuse"] = BuildVec4Dict(rp.properties.diffuse);
+                rpExtras["specular"] = BuildVec4Dict(rp.properties.specular);
+                rpExtras["emissive"] = BuildVec4Dict(rp.properties.emissive);
+                rpExtras["power"] = rp.properties.power;
+                rpExtras["hasReflection"] = rp.properties.hasReflection;
+                rpExtras["texture"] = rp.properties.texture ?? "";
             }
 
             // 2. Inject Splines
@@ -104,10 +169,8 @@ namespace HamsterMall
                 foreach (var pt in s.points)
                 {
                     var realPt = pt.Unconverted();
-
                     var ptNode = sNode.CreateNode($"{ptIdx:D2}");
 
-                    // Scaled the points down to 20% here as well
                     ptNode.LocalTransform = new System.Numerics.Matrix4x4(
                         0.2f, 0, 0, 0,
                         0, 0.2f, 0, 0,
@@ -118,44 +181,80 @@ namespace HamsterMall
                 }
             }
 
-            // 3. Inject Lights
+            // 3. Inject Lights — paired "Light_XX" + "Direction_XX" nodes
             var lightsFolder = useHierarchy ? scene.CreateNode("Lights") : null;
             int lIdx = 0;
             foreach (var l in lights)
             {
-                string lName = $"Direct_{lIdx++:D2}";
-                var lNode = lightsFolder != null ? lightsFolder.CreateNode(lName) : scene.CreateNode(lName);
+                string lightName = $"Light_{lIdx:D2}";
+                string dirName = $"Direction_{lIdx:D2}";
+                lIdx++;
 
-                // --- THE TARGETING MATH ---
-                System.Numerics.Vector3 up = System.Numerics.Vector3.UnitY;
-                System.Numerics.Vector3 forward = System.Numerics.Vector3.Normalize(l.direction - l.position);
+                var lNode = lightsFolder != null ? lightsFolder.CreateNode(lightName) : scene.CreateNode(lightName);
+                var dNode = lightsFolder != null ? lightsFolder.CreateNode(dirName) : scene.CreateNode(dirName);
 
-                if (forward.LengthSquared() < 0.001f) forward = -System.Numerics.Vector3.UnitZ;
-                if (System.Math.Abs(System.Numerics.Vector3.Dot(forward, up)) > 0.999f) up = System.Numerics.Vector3.UnitX;
+                lNode.LocalTransform = new AffineTransform(
+                    new Vector3(0.2f),
+                    Quaternion.Identity,
+                    l.position
+                );
 
-                var viewMatrix = System.Numerics.Matrix4x4.CreateLookAt(l.position, l.direction, up);
-                System.Numerics.Matrix4x4.Invert(viewMatrix, out var lightTransform);
+                var lightExtras = lNode.TryUseExtrasAsDictionary(true);
+                lightExtras["type"] = l.type;
+                lightExtras["color"] = BuildColorDict(l.color);
 
-                lNode.LocalTransform = lightTransform;
+                dNode.LocalTransform = new AffineTransform(
+                    new Vector3(0.2f),
+                    Quaternion.Identity,
+                    l.direction
+                );
 
-                // --- CREATE THE REAL GLTF LIGHT ---
                 try
                 {
-                    // This is the direct Schema2 approach to add KHR_lights_punctual
                     var punctualLight = model.CreatePunctualLight(SharpGLTF.Schema2.PunctualLightType.Directional);
                     punctualLight.Color = new System.Numerics.Vector3(l.color.X, l.color.Y, l.color.Z);
                     lNode.PunctualLight = punctualLight;
                 }
                 catch
                 {
-                    // Failsafe
-                    Console.WriteLine($"[WARNING] Could not attach physical light to {lName}. Defaulting to Empty Node.");
+                    Console.WriteLine($"[WARNING] Could not attach physical light to {lightName}.");
                 }
             }
 
-            // Save the final, fully populated file!
             model.SaveGLB(outputGltfPath);
         }
+
+        // ─── HELPERS: Build JsonDictionary for Vector types ───
+
+        private static SharpGLTF.IO.JsonDictionary BuildVec3Dict(Vector3 v)
+        {
+            var dict = new SharpGLTF.IO.JsonDictionary();
+            dict["x"] = v.X;
+            dict["y"] = v.Y;
+            dict["z"] = v.Z;
+            return dict;
+        }
+
+        private static SharpGLTF.IO.JsonDictionary BuildVec4Dict(Vector4 v)
+        {
+            var dict = new SharpGLTF.IO.JsonDictionary();
+            dict["x"] = v.X;
+            dict["y"] = v.Y;
+            dict["z"] = v.Z;
+            dict["w"] = v.W;
+            return dict;
+        }
+
+        private static SharpGLTF.IO.JsonDictionary BuildColorDict(Vector3 v)
+        {
+            var dict = new SharpGLTF.IO.JsonDictionary();
+            dict["r"] = v.X;
+            dict["g"] = v.Y;
+            dict["b"] = v.Z;
+            return dict;
+        }
+
+        // ─── BINARY READERS ───
 
         private static List<RefPoint> ReadRefPoints(BinaryReader reader)
         {
@@ -165,8 +264,6 @@ namespace HamsterMall
             for (int i = 0; i < count; i++)
             {
                 RefPoint rp = new RefPoint();
-
-                // Glue the "REF:" prefix back on
                 rp.name = "REF:" + ReadGameString(reader);
 
                 rp.position = new System.Numerics.Vector3(
@@ -202,6 +299,7 @@ namespace HamsterMall
             }
             return points;
         }
+
         private static List<spline> ReadSplines(BinaryReader reader)
         {
             List<spline> splinesList = new List<spline>();
@@ -210,10 +308,7 @@ namespace HamsterMall
             for (int i = 0; i < count; i++)
             {
                 spline s = new spline();
-
-                // Glue the "C:" prefix back on
                 s.name = "C:" + ReadGameString(reader);
-
                 s.points = new List<Vertex>();
 
                 int ptCount = reader.ReadInt32();
@@ -241,7 +336,6 @@ namespace HamsterMall
                 LightObj l = new LightObj();
                 l.type = reader.ReadInt32();
 
-                // Undo the .Converted() scaling!
                 l.position = new System.Numerics.Vector3(
                     reader.ReadSingle() / 50.0f,
                     reader.ReadSingle() / 50.0f,
@@ -260,11 +354,12 @@ namespace HamsterMall
             return lights;
         }
 
-        private static void BuildGLTFNode(mesh m, NodeBuilder parentNode, SceneBuilder sceneBuilder, List<Vertex> verts, string inputMeshWorldPath, string customTextureDir, bool useHierarchy)
+        private static void BuildGLTFNode(mesh m, NodeBuilder parentNode, SceneBuilder sceneBuilder,
+            List<Vertex> verts, string inputMeshWorldPath, string customTextureDir, bool useHierarchy,
+            bool thorough, List<MaterialExtras> pendingMaterialExtras)
         {
             NodeBuilder currentNode = parentNode;
 
-            // Only create a new folder node if the checkbox is checked!
             if (useHierarchy)
             {
                 currentNode = parentNode.CreateNode(m.name);
@@ -272,13 +367,40 @@ namespace HamsterMall
 
             if (m.geoms.Count > 0)
             {
-                // Loop through every single piece of geometry
                 foreach (var g in m.geoms)
                 {
-                    // Create a brand NEW mesh specifically for this geom, using its exact name!
                     var meshBuilder = new MeshBuilder<VertexPositionNormal, VertexTexture1, VertexEmpty>(g.name);
 
-                    var material = new MaterialBuilder(g.texture ?? "Default").WithBaseColor(g.diffuse);
+                    var material = new MaterialBuilder(g.texture ?? "Default")
+                        .WithBaseColor(g.diffuse);
+
+                    // Write emissive to glTF material so exporter can read it back
+                    if (g.emissive != Vector4.Zero)
+                    {
+                        material.WithEmissive(new Vector3(g.emissive.X, g.emissive.Y, g.emissive.Z));
+                    }
+
+                    // Simple mode: map MESHWORLD specular→metallic and power→roughness
+                    // so material data survives round-trip via the exporter's PBR fallback.
+                    // Thorough mode: store as extras instead (more precise, preserves RGB specular).
+                    if (thorough && pendingMaterialExtras != null)
+                    {
+                        pendingMaterialExtras.Add(new MaterialExtras
+                        {
+                            materialName = g.texture ?? "Default",
+                            ambient = g.ambient,
+                            specular = g.specular,
+                            power = g.power,
+                            hasReflection = g.hasReflection
+                        });
+                    }
+                    else
+                    {
+                        // Simple mode: specular RGB → metallic (averaged), power → roughness (inverted)
+                        float metallic = (g.specular.X + g.specular.Y + g.specular.Z) / 3.0f;
+                        float roughness = 1.0f - System.Math.Min(g.power / 100.0f, 1.0f);
+                        material.WithMetallicRoughness(metallic, roughness);
+                    }
 
                     // Texture Loading
                     if (!string.IsNullOrEmpty(g.texture))
@@ -322,7 +444,6 @@ namespace HamsterMall
                         }
                     }
 
-                    // Add polygons
                     var primitive = meshBuilder.UsePrimitive(material);
 
                     foreach (var s in g.strips)
@@ -345,32 +466,28 @@ namespace HamsterMall
                         }
                     }
 
-                    // Attach it as a completely separate object
                     if (useHierarchy)
                     {
-                        // Put it inside the spatial "Chunk" folder
                         var geomNode = currentNode.CreateNode(g.name);
                         sceneBuilder.AddRigidMesh(meshBuilder, geomNode);
                     }
                     else
                     {
-                        // Put it in the flat root list
                         var flatNode = parentNode.CreateNode(g.name);
                         sceneBuilder.AddRigidMesh(meshBuilder, flatNode);
                     }
                 }
             }
 
-            // RECURSION!
             foreach (var child in m.children)
             {
-                BuildGLTFNode(child, currentNode, sceneBuilder, verts, inputMeshWorldPath, customTextureDir, useHierarchy);
+                BuildGLTFNode(child, currentNode, sceneBuilder, verts, inputMeshWorldPath, customTextureDir, useHierarchy, thorough, pendingMaterialExtras);
             }
         }
 
         private static mesh ReadMeshNode(BinaryReader reader)
         {
-            reader.ReadBytes(24);
+            reader.ReadBytes(24); // bounding box
 
             int childCount = reader.ReadInt32();
             int geomCount = 0;
@@ -385,11 +502,8 @@ namespace HamsterMall
             for (int g = 0; g < geomCount; g++)
             {
                 geom currentGeom = new geom { strips = new List<strip>() };
-
-                // Save the exact name directly to the geom!
                 currentGeom.name = ReadGameString(reader);
 
-                // Let's name the parent folder after the first geom just to keep the hierarchy readable
                 if (g == 0) currentMesh.name = "Chunk_" + currentGeom.name;
 
                 currentGeom.ambient = ReadVector4(reader);
@@ -416,7 +530,6 @@ namespace HamsterMall
 
             if (string.IsNullOrEmpty(currentMesh.name)) currentMesh.name = "Folder";
 
-            // Attach the children directly to this mesh!
             for (int c = 0; c < childCount; c++)
             {
                 currentMesh.children.Add(ReadMeshNode(reader));
@@ -425,7 +538,6 @@ namespace HamsterMall
             return currentMesh;
         }
 
-        // Helper to read 4 floats directly into a Vector4
         private static Vector4 ReadVector4(BinaryReader reader)
         {
             return new Vector4(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
@@ -437,11 +549,10 @@ namespace HamsterMall
             if (length <= 0) return "";
 
             char[] chars = reader.ReadChars(length - 1);
-            reader.ReadByte(); // Consume the null terminator
+            reader.ReadByte(); // null terminator
             return new string(chars);
         }
 
-        // Unstripify Logic
         private static List<(int A, int B, int C)> Unstripify(strip s)
         {
             List<(int A, int B, int C)> triangles = new List<(int, int, int)>();
@@ -451,7 +562,6 @@ namespace HamsterMall
                 int vB = s.vertexOffset + i + 1;
                 int vC = s.vertexOffset + i + 2;
 
-                // Weird winding order
                 if (i % 2 == 0)
                 {
                     triangles.Add((vA, vC, vB));

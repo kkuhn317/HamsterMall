@@ -93,13 +93,14 @@ namespace HamsterMall
 
         private void textureFolder_Click(object sender, EventArgs e)
         {
-            using (FolderBrowserDialog folderDialog = new FolderBrowserDialog())
+            using (OpenFileDialog folderDialog = new OpenFileDialog())
             {
-                folderDialog.Description = "Select the Hamsterball Textures folder";
+                folderDialog.Title = "Select the Hamsterball Textures folder";
+                folderDialog.CheckFileExists = false;
+                folderDialog.FileName = "Folder Selection.";
                 if (folderDialog.ShowDialog() == DialogResult.OK)
                 {
-                    loadedTexturePath = folderDialog.SelectedPath;
-                    //MessageBox.Show($"Textures folder set to:\n{loadedTexturePath}", "Success");
+                    loadedTexturePath = Path.GetDirectoryName(folderDialog.FileName);
                     textures_label.Text = loadedTexturePath;
                 }
             }
@@ -115,6 +116,7 @@ namespace HamsterMall
 
             // Grab the boolean from the checkbox!
             bool keepFolders = chkUseHierarchy.Checked;
+            bool thorough = chkThorough.Checked;
 
             using (SaveFileDialog saveFileDialog = new SaveFileDialog())
             {
@@ -122,7 +124,7 @@ namespace HamsterMall
                 if (saveFileDialog.ShowDialog() == DialogResult.OK)
                 {
                     // Pass the boolean into the extractor!
-                    MeshWorldExtractor.ExtractToGLTF(loadedMeshWorldPath, saveFileDialog.FileName, loadedTexturePath, keepFolders);
+                    MeshWorldExtractor.ExtractToGLTF(loadedMeshWorldPath, saveFileDialog.FileName, loadedTexturePath, keepFolders, thorough);
                     MessageBox.Show("Extracted to glTF successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }

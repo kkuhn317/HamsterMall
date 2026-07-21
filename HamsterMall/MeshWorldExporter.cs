@@ -1,4 +1,4 @@
-using SharpGLTF.Schema2;
+﻿using SharpGLTF.Schema2;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -10,6 +10,12 @@ namespace HamsterMall
 {
     public class MeshWorldExporter
     {
+        // Known folder node names that must NOT be treated as ref points
+        private static readonly HashSet<string> _folderNames = new HashSet<string>
+        {
+            "RefPoints", "Splines", "Lights", "Level_Root"
+        };
+
         public static void ExportFromGLTF(string gltfPath, string savePath, Color ambientColor, Color backgroundColor)
         {
             using (FileStream saveFile = File.OpenWrite(savePath))
@@ -22,10 +28,57 @@ namespace HamsterMall
                     WriteSplines(writer, model);
                     WriteLights(writer, model);
 
-                    // Use colors passed from form
-                    WriteBackgroundAndAmbient(writer, ambientColor, backgroundColor);
+                    // Try to read scene-level metadata from model extras.
+                    // If not found, fall back to the form-provided colors.
+                    Vector3 bgColor = new Vector3(backgroundColor.R / 255.0f, backgroundColor.G / 255.0f, backgroundColor.B / 255.0f);
+                    Vector3 ambColor = new Vector3(ambientColor.R / 255.0f, ambientColor.G / 255.0f, ambientColor.B / 255.0f);
+                    Vector3 rootMin = new Vector3(-1000000.0f, -1000000.0f, -1000000.0f);
+                    Vector3 rootMax = new Vector3(1000000.0f, 1000000.0f, 1000000.0f);
 
-                    WriteVertices(writer, model);
+                    var extrasDict = model.TryUseExtrasAsDictionary(true);
+                    if (extrasDict != null)
+                    {
+                        if (extrasDict.ContainsKey("backgroundColor"))
+                        {
+                            var bc = extrasDict["backgroundColor"] as SharpGLTF.IO.JsonDictionary;
+                            if (bc != null)
+                            {
+                                bgColor = new Vector3(
+                                    Convert.ToSingle(bc["x"]), Convert.ToSingle(bc["y"]), Convert.ToSingle(bc["z"]));
+                            }
+                        }
+                        if (extrasDict.ContainsKey("ambientColor"))
+                        {
+                            var ac = extrasDict["ambientColor"] as SharpGLTF.IO.JsonDictionary;
+                            if (ac != null)
+                            {
+                                ambColor = new Vector3(
+                                    Convert.ToSingle(ac["x"]), Convert.ToSingle(ac["y"]), Convert.ToSingle(ac["z"]));
+                            }
+                        }
+                        if (extrasDict.ContainsKey("rootBoundMin"))
+                        {
+                            var rm = extrasDict["rootBoundMin"] as SharpGLTF.IO.JsonDictionary;
+                            if (rm != null)
+                            {
+                                rootMin = new Vector3(
+                                    Convert.ToSingle(rm["x"]), Convert.ToSingle(rm["y"]), Convert.ToSingle(rm["z"]));
+                            }
+                        }
+                        if (extrasDict.ContainsKey("rootBoundMax"))
+                        {
+                            var rmx = extrasDict["rootBoundMax"] as SharpGLTF.IO.JsonDictionary;
+                            if (rmx != null)
+                            {
+                                rootMax = new Vector3(
+                                    Convert.ToSingle(rmx["x"]), Convert.ToSingle(rmx["y"]), Convert.ToSingle(rmx["z"]));
+                            }
+                        }
+                    }
+
+                    WriteBackgroundAndAmbient(writer, bgColor, ambColor);
+
+                    WriteVertices(writer, model, rootMin, rootMax);
 
                     var saveFileInfo = new FileInfo(savePath);
                     var textureDirectoryPath = Path.Combine(saveFileInfo.DirectoryName, "textures");
@@ -49,7 +102,7 @@ namespace HamsterMall
         {
             var textures = model.LogicalNodes
                 .SelectMany(node => node.Mesh?.Primitives ?? Enumerable.Empty<MeshPrimitive>())
-                .Select(primitive => primitive.Material?.Channels?.FirstOrDefault(channel => channel.Key == "BaseColor").Texture)
+                .Select(primitive => primitive.Material?.FindChannel("BaseColor")?.Texture)
                 .Where(texture => texture != null)
                 .GroupBy(texture => texture.PrimaryImage.Name)
                 .Select(texture => texture.First());
@@ -68,13 +121,20 @@ namespace HamsterMall
             var Nodes = new List<Node>();
             foreach (Node node in model.LogicalNodes)
             {
+                // Exclude known folder nodes — they are structural, not ref points
+                if (_folderNames.Contains(node.Name))
+                    continue;
+
                 if (!node.Name.StartsWith("C:") && !node.Name.StartsWith("Light") && !node.Name.StartsWith("Direction"))
                 {
-                    if (node.VisualParent == null || !node.VisualParent.Name.StartsWith("C:"))
+                    if (node.VisualParent == null || !_folderNames.Contains(node.VisualParent.Name))
                     {
-                        if (node.Mesh == null || node.Name.StartsWith("REF:"))
+                        if (node.VisualParent == null || !node.VisualParent.Name.StartsWith("C:"))
                         {
-                            Nodes.Add(node);
+                            if (node.Mesh == null || node.Name.StartsWith("REF:"))
+                            {
+                                Nodes.Add(node);
+                            }
                         }
                     }
                 }
@@ -84,7 +144,6 @@ namespace HamsterMall
 
             foreach (var node in Nodes)
             {
-                int length = node.Name.LastIndexOf(".");
                 int startLength = 0;
                 bool REF = false;
 
@@ -97,38 +156,54 @@ namespace HamsterMall
                     }
                 }
 
-                length = length == -1 ? node.Name.Length : length;
+                // Strip Blender-style ".001" suffixes but preserve original dots in names
+                // by using the LAST dot only if there are digits after it
+                int length = node.Name.Length;
+                int dotIdx = node.Name.LastIndexOf(".");
+                if (dotIdx > startLength && dotIdx + 1 < node.Name.Length)
+                {
+                    // Check if everything after the dot is a number (Blender suffix like .001, .002)
+                    string afterDot = node.Name.Substring(dotIdx + 1);
+                    bool isNumeric = true;
+                    foreach (char c in afterDot)
+                    {
+                        if (!char.IsDigit(c)) { isNumeric = false; break; }
+                    }
+                    if (isNumeric)
+                    {
+                        length = dotIdx;
+                    }
+                }
 
                 writer.Write(node.Name.Substring(startLength, length - startLength));
                 writer.Write(node.WorldMatrix.Translation.X * 50.0f);
                 writer.Write(node.WorldMatrix.Translation.Y * 50.0f);
                 writer.Write(-node.WorldMatrix.Translation.Z * 50.0f);
 
-                //This is all code translating the quaternion rotation format into the Euler format
-                if (true)
+                // Read rotation from node's local transform (quaternion → Euler degrees)
                 {
+                    Quaternion q = node.LocalTransform.Rotation;
+                    float rY = q.X;
+                    float rX = q.Y;
+                    float rZ = -q.Z;
+                    float rW = q.W;
 
-                    double rY = node.LocalTransform.Rotation.X;
-                    double rX = node.LocalTransform.Rotation.Y;
-                    double rZ = -node.LocalTransform.Rotation.Z;
-                    double rW = node.LocalTransform.Rotation.W;
-
-                    double RotX = 0;
-                    double RotY = 0;
-                    double RotZ = 0;
+                    float RotX = 0;
+                    float RotY = 0;
+                    float RotZ = 0;
 
                     if (1 - 2 * (rX * rX + rY * rY) != 0)
                     {
-                        RotY = 180 * Math.Atan2(2 * (rW * rX + rY * rZ), (1 - 2 * (rX * rX + rY * rY))) / Math.PI;
+                        RotY = (float)(180 * Math.Atan2(2 * (rW * rX + rY * rZ), (1 - 2 * (rX * rX + rY * rY))) / Math.PI);
                     }
 
                     if (1 - 2 * (rY * rY + rZ * rZ) != 0)
                     {
-                        RotZ = 180 * Math.Atan2(2 * (rW * rZ + rX * rY), (1 - 2 * (rY * rY + rZ * rZ))) / Math.PI;
+                        RotZ = (float)(180 * Math.Atan2(2 * (rW * rZ + rX * rY), (1 - 2 * (rY * rY + rZ * rZ))) / Math.PI);
                     }
-                    RotX = 180 * Math.Asin(2 * (rW * rY - rZ * rX)) / Math.PI;
+                    RotX = (float)(180 * Math.Asin(2 * (rW * rY - rZ * rX)) / Math.PI);
 
-                    if (Double.IsNaN(RotY))
+                    if (float.IsNaN(RotY))
                     {
                         if (rW * rY - rZ * rX > 0)
                         {
@@ -139,80 +214,123 @@ namespace HamsterMall
                             RotY = -90;
                         }
                     }
-                    writer.Write((float)RotZ);//Rotation Z
-                    writer.Write((float)RotY);//Rotation Y
-                    writer.Write((float)RotX);//Rotation X
+                    writer.Write(RotZ); // Rotation Z
+                    writer.Write(RotY); // Rotation Y
+                    writer.Write(RotX); // Rotation X
                 }
-                //End of code to write rotation
 
+                // Check if this ref point has stored material data in its extras
+                var nodeExtras = node.TryUseExtrasAsDictionary(false);
+                bool hasColor = REF;
 
-                if (REF)
+                if (nodeExtras != null && nodeExtras.ContainsKey("hasColor"))
                 {
-                    writer.Write(1); //Has color
+                    hasColor = Convert.ToInt32(nodeExtras["hasColor"]) == 1;
+                }
 
-                    writer.Write(0.9921f);
-                    writer.Write(0.9921f);
-                    writer.Write(0.9921f);
-                    writer.Write(1f);
+                if (hasColor)
+                {
+                    writer.Write(1); // Has color
 
-                    writer.Write(0.9921f);
-                    writer.Write(0.9921f);
-                    writer.Write(0.9921f);
-                    writer.Write(1f);
+                    Vector4 ambient = new Vector4(0.9921f, 0.9921f, 0.9921f, 1f);
+                    Vector4 diffuse = new Vector4(0.9921f, 0.9921f, 0.9921f, 1f);
+                    Vector4 specular = Vector4.Zero;
+                    Vector4 emissive = Vector4.Zero;
+                    float power = 10f;
+                    int hasReflection = 0;
+                    string textureName = null;
 
-                    writer.Write(0);
-                    writer.Write(0);
-                    writer.Write(0);
-                    writer.Write(1f);
-
-                    writer.Write(0);
-                    writer.Write(0);
-                    writer.Write(0);
-                    writer.Write(1f);
-
-                    writer.Write(10f); // power?
-                    writer.Write(0); //has reflection
-
-                    var Primitive = node.Mesh.Primitives;
-                    var texture = Primitive[0].Material?.Channels?.FirstOrDefault(channel => channel.Key == "BaseColor").Texture;
-                    if (texture != null)
+                    // Read material properties from node extras (stored by extractor)
+                    if (nodeExtras != null)
                     {
-                        writer.Write(1); //has image
-                        string texture2 = texture.PrimaryImage.Name;
-                        if (!texture2.EndsWith(".bmp") && !texture2.EndsWith(".png"))
+                        ambient = ReadVec4FromExtras(nodeExtras, "ambient", ambient);
+                        diffuse = ReadVec4FromExtras(nodeExtras, "diffuse", diffuse);
+                        specular = ReadVec4FromExtras(nodeExtras, "specular", specular);
+                        emissive = ReadVec4FromExtras(nodeExtras, "emissive", emissive);
+
+                        if (nodeExtras.ContainsKey("power"))
+                            power = Convert.ToSingle(nodeExtras["power"]);
+                        if (nodeExtras.ContainsKey("hasReflection"))
+                            hasReflection = Convert.ToInt32(nodeExtras["hasReflection"]);
+                        if (nodeExtras.ContainsKey("texture"))
                         {
-                            if (texture.PrimaryImage.Name == "BlueChecker" || texture.PrimaryImage.Name == "BrightGreenChecker" || texture.PrimaryImage.Name == "GreenChecker" || texture.PrimaryImage.Name == "OrangeChecker" || texture.PrimaryImage.Name == "PinkChecker" || texture.PrimaryImage.Name == "PurpleChecker" || texture.PrimaryImage.Name == "RedChecker")
+                            string tex = nodeExtras["texture"] as string;
+                            if (!string.IsNullOrEmpty(tex))
+                                textureName = tex;
+                        }
+                    }
+
+                    // For REF flag/bridge/smallflag nodes, also check for attached mesh texture
+                    if (REF && textureName == null && node.Mesh != null)
+                    {
+                        var Primitive = node.Mesh.Primitives;
+                        var texture = Primitive[0].Material?.FindChannel("BaseColor")?.Texture;
+                        if (texture != null)
+                        {
+                            textureName = texture.PrimaryImage.Name;
+                        }
+                    }
+
+                    writer.Write(ambient);
+                    writer.Write(diffuse);
+                    writer.Write(specular);
+                    writer.Write(emissive);
+                    writer.Write(power);
+                    writer.Write(hasReflection);
+
+                    // ALWAYS write hasImage flag — 1 if texture exists, 0 if not
+                    if (textureName != null)
+                    {
+                        writer.Write(1); // has image
+
+                        // Normalize texture name — add extension if missing
+                        if (!textureName.EndsWith(".bmp") && !textureName.EndsWith(".png"))
+                        {
+                            if (textureName == "BlueChecker" || textureName == "BrightGreenChecker" || textureName == "GreenChecker" ||
+                                textureName == "OrangeChecker" || textureName == "PinkChecker" || textureName == "PurpleChecker" ||
+                                textureName == "RedChecker")
                             {
-                                texture2 = texture.PrimaryImage.Name + ".bmp";
+                                textureName = textureName + ".bmp";
                             }
                             else
                             {
-                                texture2 = texture.PrimaryImage.Name + ".png";
+                                textureName = textureName + ".png";
                             }
                         }
-                        else
-                        {
-                            texture2 = texture.PrimaryImage.Name;
-                        }
 
-
-
-                        writer.Write(texture2 ?? "");
+                        writer.Write(textureName ?? "");
+                    }
+                    else
+                    {
+                        writer.Write(0); // no image — ALWAYS write this flag!
                     }
                 }
                 else
                 {
-                    writer.Write(0);//Does not have color
+                    writer.Write(0); // Does not have color
                 }
             }
+        }
 
-
-
+        private static Vector4 ReadVec4FromExtras(SharpGLTF.IO.JsonDictionary dict, string key, Vector4 defaultValue)
+        {
+            if (dict.ContainsKey(key))
+            {
+                var subDict = dict[key] as SharpGLTF.IO.JsonDictionary;
+                if (subDict != null)
+                {
+                    return new Vector4(
+                        Convert.ToSingle(subDict["x"]),
+                        Convert.ToSingle(subDict["y"]),
+                        Convert.ToSingle(subDict["z"]),
+                        Convert.ToSingle(subDict["w"]));
+                }
+            }
+            return defaultValue;
         }
 
         private static void WriteSplines(CustomWriter writer, ModelRoot model)
         {
-
             List<spline> Splines = new List<spline>();
             foreach (var Node in model.LogicalNodes)
             {
@@ -227,19 +345,16 @@ namespace HamsterMall
                         foreach (MeshPrimitive Primitive in Node.Mesh.Primitives)
                         {
                             GetVertexBuffer(Primitive, out List<Vector3> Vertices);
-                            Vertices.OrderBy(Vertex => -Vertex.Y);
+                            // FIX: Actually use the sorted result (was dead code before)
+                            Vertices = Vertices.OrderBy(v => -v.Y).ToList();
                             foreach (Vector3 vertex in Vertices)
                             {
-                                //convert to proper coordinates
-                                Vector3 RPos = vertex; //Relative position to node
-                                Vector3 NPos = Node.WorldMatrix.Translation; //Node position
-                                Vector3 Pos = RPos + NPos; //Real position
+                                Vector3 RPos = vertex;
+                                Vector3 NPos = Node.WorldMatrix.Translation;
+                                Vector3 Pos = RPos + NPos;
                                 Vertex v = new Vertex { X = Pos.X, Y = Pos.Y, Z = Pos.Z }.Converted();
-
-                                //add to spline.points
                                 spline.points.Add(v);
                             }
-
                         }
                         Splines.Add(spline);
                     }
@@ -247,25 +362,20 @@ namespace HamsterMall
                     {
                         foreach (Node node in ChildNodes)
                         {
-                            //convert nodes to vertices
                             Vector3 Pos = node.WorldMatrix.Translation;
                             Vertex v = new Vertex { X = Pos.X, Y = Pos.Y, Z = Pos.Z }.Converted();
-
-                            //add to spline.points
                             spline.points.Add(v);
                         }
                         Splines.Add(spline);
                     }
-
-
                 }
             }
-            writer.Write(Splines.Count);//number of splines
+            writer.Write(Splines.Count);
             foreach (var spline in Splines)
             {
-                int length = spline.name.Length;
-                writer.Write(spline.name.Substring(2, length - 2));//name of spline
-                writer.Write(spline.points.Count);//number of points on spline
+                // Strip "C:" prefix (2 chars)
+                writer.Write(spline.name.Substring(2));
+                writer.Write(spline.points.Count);
                 foreach (Vertex v in spline.points)
                 {
                     writer.Write(v.X);
@@ -273,66 +383,92 @@ namespace HamsterMall
                     writer.Write(v.Z);
                 }
             }
-
-
-            //No need to write a spline apparently the camera just follows if i don't populate this at all
-            //writer.Write(0);
         }
 
         private static void WriteLights(CustomWriter writer, ModelRoot model)
         {
+            // Collect light and direction nodes, paired by index suffix
+            var lightNodes = model.LogicalNodes
+                .Where(n => n.Name.StartsWith("Light_"))
+                .OrderBy(n => n.Name)
+                .ToList();
+            var directionNodes = model.LogicalNodes
+                .Where(n => n.Name.StartsWith("Direction_"))
+                .OrderBy(n => n.Name)
+                .ToList();
 
-
-            List<Vertex> Lights = new List<Vertex>();
-            List<Vertex> Directions = new List<Vertex>();
-            foreach (var Node in model.LogicalNodes.OrderBy(node => node.Name))
-            {
-                if (Node.Name.StartsWith("Light"))
-                {
-                    Vector3 Pos = Node.WorldMatrix.Translation;
-                    Vertex Light = new Vertex { X = Pos.X, Y = Pos.Y, Z = Pos.Z }.Converted();
-                    Lights.Add(Light);
-                }
-                else if (Node.Name.StartsWith("Direction"))
-                {
-                    Vector3 Pos = Node.WorldMatrix.Translation;
-                    Vertex Direction = new Vertex { X = Pos.X, Y = Pos.Y, Z = Pos.Z }.Converted();
-                    Directions.Add(Direction);
-                }
-            }
-
-            int LightCount = Lights.Count;
+            int LightCount = lightNodes.Count;
             writer.Write(LightCount);
 
-            for (int i = 1; i <= LightCount; i++)
+            for (int i = 0; i < LightCount; i++)
             {
-                writer.Write(0);
-                writer.Write(Lights[i - 1].X);
-                writer.Write(Lights[i - 1].Y);
-                writer.Write(Lights[i - 1].Z);
-                writer.Write(Directions[i - 1].X);
-                writer.Write(Directions[i - 1].Y);
-                writer.Write(Directions[i - 1].Z);
-                writer.Write(1.0f);
-                writer.Write(1.0f);
-                writer.Write(1.0f);
+                var lightNode = lightNodes[i];
+
+                // Light type — read from extras, default to 0
+                int lightType = 0;
+                Vector3 lightColor = new Vector3(1.0f, 1.0f, 1.0f);
+
+                var lightExtras = lightNode.TryUseExtrasAsDictionary(false);
+                if (lightExtras != null)
+                {
+                    if (lightExtras.ContainsKey("type"))
+                        lightType = Convert.ToInt32(lightExtras["type"]);
+
+                    if (lightExtras.ContainsKey("color"))
+                    {
+                        var colorDict = lightExtras["color"] as SharpGLTF.IO.JsonDictionary;
+                        if (colorDict != null)
+                        {
+                            lightColor = new Vector3(
+                                Convert.ToSingle(colorDict["r"]),
+                                Convert.ToSingle(colorDict["g"]),
+                                Convert.ToSingle(colorDict["b"]));
+                        }
+                    }
+                }
+
+                writer.Write(lightType);
+
+                // Position
+                Vector3 lightPos = lightNode.WorldMatrix.Translation;
+                writer.Write(lightPos.X * 50.0f);
+                writer.Write(lightPos.Y * 50.0f);
+                writer.Write(-lightPos.Z * 50.0f);
+
+                // Direction — use paired Direction_XX node if available
+                Vector3 dirPos;
+                if (i < directionNodes.Count)
+                {
+                    dirPos = directionNodes[i].WorldMatrix.Translation;
+                }
+                else
+                {
+                    // No direction node — default forward
+                    dirPos = lightPos + new Vector3(0, 0, -1);
+                }
+                writer.Write(dirPos.X * 50.0f);
+                writer.Write(dirPos.Y * 50.0f);
+                writer.Write(-dirPos.Z * 50.0f);
+
+                // Color
+                writer.Write(lightColor.X);
+                writer.Write(lightColor.Y);
+                writer.Write(lightColor.Z);
             }
-
         }
 
-        private static void WriteBackgroundAndAmbient(CustomWriter writer, Color ambient, Color background)
+        private static void WriteBackgroundAndAmbient(CustomWriter writer, Vector3 background, Vector3 ambient)
         {
-            writer.Write(background.R / 255.0f);
-            writer.Write(background.G / 255.0f);
-            writer.Write(background.B / 255.0f);
-            writer.Write(ambient.R / 255.0f);
-            writer.Write(ambient.G / 255.0f);
-            writer.Write(ambient.B / 255.0f);
+            writer.Write(background.X);
+            writer.Write(background.Y);
+            writer.Write(background.Z);
+            writer.Write(ambient.X);
+            writer.Write(ambient.Y);
+            writer.Write(ambient.Z);
         }
 
-        private static void WriteVertices(CustomWriter writer, ModelRoot model)
+        private static void WriteVertices(CustomWriter writer, ModelRoot model, Vector3 rootMin, Vector3 rootMax)
         {
-
             List<Vertex> verts = BuildVertList(model, out List<mesh> meshes);
             writer.Write(verts.Count);
             foreach (Vertex v in verts)
@@ -340,43 +476,41 @@ namespace HamsterMall
                 writer.Write(v);
             }
 
-            //Cube
-            writer.Write(-1000000.0f);
-            writer.Write(-1000000.0f);
-            writer.Write(-1000000.0f);
+            // Root bounding cube — use stored values if available
+            writer.Write(rootMin.X);
+            writer.Write(rootMin.Y);
+            writer.Write(rootMin.Z);
+            writer.Write(rootMax.X);
+            writer.Write(rootMax.Y);
+            writer.Write(rootMax.Z);
 
-            writer.Write(1000000.0f);
-            writer.Write(1000000.0f);
-            writer.Write(1000000.0f);
-
-            writer.Write(meshes.Count); // "submesh" count
+            writer.Write(meshes.Count);
 
             foreach (mesh m in meshes)
             {
-                writer.Write(-1000000.0f);
-                writer.Write(-1000000.0f);
-                writer.Write(-1000000.0f);
+                // Per-mesh bounding box — use root bounds as placeholder
+                // (original game uses these for culling, large values are safe)
+                writer.Write(rootMin.X);
+                writer.Write(rootMin.Y);
+                writer.Write(rootMin.Z);
+                writer.Write(rootMax.X);
+                writer.Write(rootMax.Y);
+                writer.Write(rootMax.Z);
 
-                writer.Write(1000000.0f);
-                writer.Write(1000000.0f);
-                writer.Write(1000000.0f);
-
-
-                writer.Write(0); // 0 submeshes
-                writer.Write(m.geoms.Count); // geom count
+                writer.Write(0); // 0 children
+                writer.Write(m.geoms.Count);
 
                 foreach (geom g in m.geoms)
                 {
-                    int length = m.name.LastIndexOf(".");
-                    length = length == -1 ? m.name.Length : length;
-                    writer.Write(m.name.Substring(0, length));
+                    // Write the geom name (not the mesh name)
+                    writer.Write(g.name ?? m.name);
 
-                    writer.Write(g.diffuse);//ambient
-                    writer.Write(g.diffuse);//diffuse
-                    writer.Write(g.specular);//spec
-                    writer.Write(g.emissive);//emissive
-                    writer.Write(g.power);  // specular shininess
-                    writer.Write(0); //has reflection
+                    writer.Write(g.ambient);   // ambient — now uses actual value
+                    writer.Write(g.diffuse);    // diffuse
+                    writer.Write(g.specular);   // specular — now uses actual value
+                    writer.Write(g.emissive);  // emissive — now uses actual value
+                    writer.Write(g.power);      // power/shininess
+                    writer.Write(g.hasReflection); // has reflection — now uses actual value
 
                     if (g.texture != null)
                     {
@@ -388,21 +522,17 @@ namespace HamsterMall
                         writer.Write(0);
                     }
 
-                    writer.Write(g.strips.Count); // strip count
+                    writer.Write(g.strips.Count);
 
                     foreach (strip s in g.strips)
                     {
                         writer.Write(s.triangleCount);
                         writer.Write(s.vertexOffset);
                     }
-
                 }
-
-
             }
-
-
         }
+
         private static List<Vertex> BuildVertList(ModelRoot Root, out List<mesh> meshes)
         {
             List<Vertex> verts = new List<Vertex>();
@@ -415,9 +545,9 @@ namespace HamsterMall
                     continue;
                 }
 
-                if (!Node.Name.StartsWith("REF:") && !Node.Mesh.Name.StartsWith("C:") && !Node.Name.StartsWith("C:"))
+                if (!Node.Name.StartsWith("REF:") && !Node.Mesh.Name.StartsWith("C:") && !Node.Name.StartsWith("C:") &&
+                    !Node.Name.StartsWith("Light_") && !Node.Name.StartsWith("Direction_"))
                 {
-
                     Mesh Mesh = Node.Mesh;
 
                     mesh m = new mesh();
@@ -426,28 +556,47 @@ namespace HamsterMall
                     foreach (MeshPrimitive Primitive in Mesh.Primitives)
                     {
                         geom g = new geom();
+                        g.name = Node.Name;
                         g.strips = new List<strip>();
 
-                        g.diffuse = Primitive.Material?.Channels?.First(channel => channel.Key == "BaseColor").Parameter ?? Vector4.One;
+                        g.diffuse = Primitive.Material?.FindChannel("BaseColor")?.Parameter ?? Vector4.One;
+                        g.emissive = Primitive.Material?.FindChannel("Emissive")?.Parameter ?? Vector4.Zero;
 
-                        g.emissive = Primitive.Material?.Channels?.First(channel => channel.Key == "Emissive").Parameter ?? Vector4.Zero;
+                        // Specular/power/ambient/hasReflection:
+                        // Check material extras first (thorough extraction), fall back to PBR sliders (simple mode / Blender)
+                        var matExtras = Primitive.Material?.TryUseExtrasAsDictionary(false);
 
-                        // Specular
-                        var metRoughChannel = Primitive.Material?.Channels?.FirstOrDefault(channel => channel.Key == "MetallicRoughness");
-
-                        float metallic = 0.0f;
-                        float roughness = 1.0f;
-
-                        if (metRoughChannel != null)
+                        if (matExtras != null && matExtras.ContainsKey("ambient"))
                         {
-                            // SharpGLTF stores the slider values inside a Vector4 called 'Parameter'
-                            metallic = metRoughChannel.Value.Parameter.X;
-                            roughness = metRoughChannel.Value.Parameter.Y;
+                            // Thorough mode: read from material extras
+                            g.ambient = ReadVec4FromExtras(matExtras, "ambient", g.diffuse);
+                            g.specular = ReadVec4FromExtras(matExtras, "specular", Vector4.Zero);
+                            if (matExtras.ContainsKey("power"))
+                                g.power = Convert.ToSingle(matExtras["power"]);
+                            if (matExtras.ContainsKey("hasReflection"))
+                                g.hasReflection = Convert.ToInt32(matExtras["hasReflection"]);
+                        }
+                        else
+                        {
+                            // Simple mode: derive from Blender's metallic/roughness sliders
+                            var metRoughChannel = Primitive.Material?.FindChannel("MetallicRoughness");
+
+                            float metallic = 0.0f;
+                            float roughness = 1.0f;
+
+                            if (metRoughChannel != null)
+                            {
+                                metallic = metRoughChannel.Value.Parameter.X;
+                                roughness = metRoughChannel.Value.Parameter.Y;
+                            }
+
+                            g.ambient = g.diffuse;
+                            g.specular = new Vector4(metallic, metallic, metallic, 1.0f);
+                            g.power = Math.Max(1.0f, (1.0f - roughness) * 100.0f);
+                            g.hasReflection = 0;
                         }
 
-                        g.specular = new Vector4(metallic, metallic, metallic, 1.0f);
-
-                        var texture = Primitive.Material?.Channels?.FirstOrDefault(channel => channel.Key == "BaseColor").Texture;
+                        var texture = Primitive.Material?.FindChannel("BaseColor")?.Texture;
                         if (texture != null)
                         {
                             if (!texture.PrimaryImage.Name.EndsWith(".png") && !texture.PrimaryImage.Name.EndsWith(".bmp"))
@@ -465,10 +614,7 @@ namespace HamsterMall
                             {
                                 g.texture = texture.PrimaryImage.Name;
                             }
-
                         }
-
-                        g.power = Math.Max(1.0f, (1.0f - roughness) * 100.0f);
 
                         GetVertexBuffer(Primitive, out List<Vector3> Vertices);
                         GetNormalBuffer(Primitive, out List<Vector3> Normals);
@@ -482,14 +628,11 @@ namespace HamsterMall
                         }
                         GetIndexBuffer(Primitive, out List<(int A, int B, int C)> Indices);
 
-                        Console.WriteLine("triangleCount:" + Indices.Count());
-
                         // Stripify!!
                         List<List<int>> strips = GenerateVertexStrips(Indices);
 
                         foreach (var stripVerts in strips)
                         {
-                            // A valid strip of N vertices ALWAYS produces (N - 2) triangles
                             g.strips.Add(new strip { triangleCount = stripVerts.Count - 2, vertexOffset = verts.Count });
 
                             foreach (int p in stripVerts)
@@ -528,7 +671,6 @@ namespace HamsterMall
                             }
                         }
 
-                        Console.WriteLine("g.strips length: " + g.strips.Count());
                         m.geoms.Add(g);
                     }
                     meshes.Add(m);
@@ -543,8 +685,6 @@ namespace HamsterMall
             List<List<int>> vertexStrips = new List<List<int>>();
             HashSet<int> unvisited = new HashSet<int>(Enumerable.Range(0, triangles.Count));
 
-            // Precompute an edge-to-triangle map so we can instantly find neighbors
-            // We use a tuple of (minVertex, maxVertex) so the edge direction doesn't matter
             Dictionary<(int, int), List<int>> edgeToTriangles = new Dictionary<(int, int), List<int>>();
             for (int i = 0; i < triangles.Count; i++)
             {
@@ -556,7 +696,6 @@ namespace HamsterMall
 
             while (unvisited.Count > 0)
             {
-                // 1. Find the best starting triangle (the one with the fewest unvisited neighbors)
                 int bestStartTri = -1;
                 int minNeighbors = int.MaxValue;
 
@@ -577,12 +716,9 @@ namespace HamsterMall
 
                 var startTri = triangles[bestStartTri];
 
-                // 2. A triangle has 3 edges. We try all 3 valid winding permutations 
-                // to see which direction yields the longest continuous strip.
                 List<int> bestStrip = null;
                 List<int> bestTriPath = null;
 
-                // Using your corrected (C, B, A) winding order!
                 int[][] startPermutations = new int[][] {
                     new int[] { startTri.C, startTri.B, startTri.A },
                     new int[] { startTri.B, startTri.A, startTri.C },
@@ -597,14 +733,12 @@ namespace HamsterMall
 
                     while (true)
                     {
-                        // The active edge is always the last two vertices
                         int vA = currentStrip[currentStrip.Count - 2];
                         int vB = currentStrip[currentStrip.Count - 1];
                         var edgeKey = (Math.Min(vA, vB), Math.Max(vA, vB));
 
                         int nextTriIndex = -1;
 
-                        // Find an unvisited triangle that shares this exact edge
                         if (edgeToTriangles.ContainsKey(edgeKey))
                         {
                             foreach (int nTri in edgeToTriangles[edgeKey])
@@ -619,7 +753,6 @@ namespace HamsterMall
 
                         if (nextTriIndex != -1)
                         {
-                            // We found a connecting triangle! Append its unique vertex.
                             var nextTri = triangles[nextTriIndex];
                             int vNew = nextTri.A;
                             if (nextTri.B != vA && nextTri.B != vB) vNew = nextTri.B;
@@ -631,12 +764,10 @@ namespace HamsterMall
                         }
                         else
                         {
-                            // Dead end. We can't go any further in this direction.
                             break;
                         }
                     }
 
-                    // If this path was longer than the others, save it
                     if (bestStrip == null || currentStrip.Count > bestStrip.Count)
                     {
                         bestStrip = currentStrip;
@@ -644,7 +775,6 @@ namespace HamsterMall
                     }
                 }
 
-                // 3. Commit the longest strip we found and mark its triangles as visited
                 vertexStrips.Add(bestStrip);
                 foreach (int tIndex in bestTriPath)
                 {
@@ -655,7 +785,6 @@ namespace HamsterMall
             return vertexStrips;
         }
 
-        // Helper method to populate the edge dictionary
         private static void AddEdge(Dictionary<(int, int), List<int>> dict, int v1, int v2, int triIndex)
         {
             var key = (Math.Min(v1, v2), Math.Max(v1, v2));
@@ -663,14 +792,12 @@ namespace HamsterMall
             dict[key].Add(triIndex);
         }
 
-        // Helper method to count unvisited neighbors on a specific edge
         private static int CountUnvisited(Dictionary<(int, int), List<int>> dict, int v1, int v2, HashSet<int> unvisited, int selfTri)
         {
             var key = (Math.Min(v1, v2), Math.Max(v1, v2));
             if (!dict.ContainsKey(key)) return 0;
             return dict[key].Count(t => t != selfTri && unvisited.Contains(t));
         }
-
 
         private static bool GetVertexBuffer(MeshPrimitive Primitive, out List<Vector3> VertexBuffer)
         {
@@ -691,6 +818,7 @@ namespace HamsterMall
             }
             return true;
         }
+
         private static bool GetNormalBuffer(MeshPrimitive Primitive, out List<Vector3> NormalBuffer)
         {
             NormalBuffer = Primitive.GetVertexAccessor("NORMAL")?.AsVector3Array().ToList();
@@ -713,6 +841,5 @@ namespace HamsterMall
 
             return true;
         }
-        
     }
 }
