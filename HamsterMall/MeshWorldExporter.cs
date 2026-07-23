@@ -13,7 +13,7 @@ namespace HamsterMall
         // Known folder node names that must NOT be treated as ref points
         private static readonly HashSet<string> _folderNames = new HashSet<string>
         {
-            "RefPoints", "Splines", "Lights", "Level_Root"
+            "RefPoints", "Splines", "Lights", "Level_Root", "SceneMetadata"
         };
 
         public static void ExportFromGLTF(string gltfPath, string savePath, Color ambientColor, Color backgroundColor)
@@ -28,52 +28,25 @@ namespace HamsterMall
                     WriteSplines(writer, model);
                     WriteLights(writer, model);
 
-                    // Try to read scene-level metadata from model extras.
+                    // Try to read scene-level metadata from the "SceneMetadata" dummy node's extras.
                     // If not found, fall back to the form-provided colors.
                     Vector3 bgColor = new Vector3(backgroundColor.R / 255.0f, backgroundColor.G / 255.0f, backgroundColor.B / 255.0f);
                     Vector3 ambColor = new Vector3(ambientColor.R / 255.0f, ambientColor.G / 255.0f, ambientColor.B / 255.0f);
                     Vector3 rootMin = new Vector3(-1000000.0f, -1000000.0f, -1000000.0f);
                     Vector3 rootMax = new Vector3(1000000.0f, 1000000.0f, 1000000.0f);
 
-                    var extrasDict = model.TryUseExtrasAsDictionary(true);
+                    var metaNode = model.LogicalNodes.FirstOrDefault(n => n.Name == "SceneMetadata");
+                    var extrasDict = metaNode?.TryUseExtrasAsDictionary(false);
                     if (extrasDict != null)
                     {
                         if (extrasDict.ContainsKey("backgroundColor"))
-                        {
-                            var bc = extrasDict["backgroundColor"] as SharpGLTF.IO.JsonDictionary;
-                            if (bc != null)
-                            {
-                                bgColor = new Vector3(
-                                    Convert.ToSingle(bc["x"]), Convert.ToSingle(bc["y"]), Convert.ToSingle(bc["z"]));
-                            }
-                        }
+                            bgColor = ReadVec3FromExtras(extrasDict, "backgroundColor", bgColor);
                         if (extrasDict.ContainsKey("ambientColor"))
-                        {
-                            var ac = extrasDict["ambientColor"] as SharpGLTF.IO.JsonDictionary;
-                            if (ac != null)
-                            {
-                                ambColor = new Vector3(
-                                    Convert.ToSingle(ac["x"]), Convert.ToSingle(ac["y"]), Convert.ToSingle(ac["z"]));
-                            }
-                        }
+                            ambColor = ReadVec3FromExtras(extrasDict, "ambientColor", ambColor);
                         if (extrasDict.ContainsKey("rootBoundMin"))
-                        {
-                            var rm = extrasDict["rootBoundMin"] as SharpGLTF.IO.JsonDictionary;
-                            if (rm != null)
-                            {
-                                rootMin = new Vector3(
-                                    Convert.ToSingle(rm["x"]), Convert.ToSingle(rm["y"]), Convert.ToSingle(rm["z"]));
-                            }
-                        }
+                            rootMin = ReadVec3FromExtras(extrasDict, "rootBoundMin", rootMin);
                         if (extrasDict.ContainsKey("rootBoundMax"))
-                        {
-                            var rmx = extrasDict["rootBoundMax"] as SharpGLTF.IO.JsonDictionary;
-                            if (rmx != null)
-                            {
-                                rootMax = new Vector3(
-                                    Convert.ToSingle(rmx["x"]), Convert.ToSingle(rmx["y"]), Convert.ToSingle(rmx["z"]));
-                            }
-                        }
+                            rootMax = ReadVec3FromExtras(extrasDict, "rootBoundMax", rootMax);
                     }
 
                     WriteBackgroundAndAmbient(writer, bgColor, ambColor);
@@ -316,7 +289,18 @@ namespace HamsterMall
         {
             if (dict.ContainsKey(key))
             {
-                var subDict = dict[key] as SharpGLTF.IO.JsonDictionary;
+                var val = dict[key];
+                // Array format: [x, y, z, w] (new — Blender float arrays)
+                if (val is IList<object> arr && arr.Count >= 4)
+                {
+                    return new Vector4(
+                        Convert.ToSingle(arr[0]),
+                        Convert.ToSingle(arr[1]),
+                        Convert.ToSingle(arr[2]),
+                        Convert.ToSingle(arr[3]));
+                }
+                // Dict format: {"x":.., "y":.., "z":.., "w":..} (old — Python dict)
+                var subDict = val as SharpGLTF.IO.JsonDictionary;
                 if (subDict != null)
                 {
                     return new Vector4(
@@ -324,6 +308,36 @@ namespace HamsterMall
                         Convert.ToSingle(subDict["y"]),
                         Convert.ToSingle(subDict["z"]),
                         Convert.ToSingle(subDict["w"]));
+                }
+            }
+            return defaultValue;
+        }
+
+        private static Vector3 ReadVec3FromExtras(SharpGLTF.IO.JsonDictionary dict, string key, Vector3 defaultValue)
+        {
+            if (dict.ContainsKey(key))
+            {
+                var val = dict[key];
+                // Array format: [x, y, z] (new — Blender float arrays)
+                if (val is IList<object> arr && arr.Count >= 3)
+                {
+                    return new Vector3(
+                        Convert.ToSingle(arr[0]),
+                        Convert.ToSingle(arr[1]),
+                        Convert.ToSingle(arr[2]));
+                }
+                // Dict format: {"x":.., "y":.., "z":..} or {"r":.., "g":.., "b":..} (old — Python dict)
+                var subDict = val as SharpGLTF.IO.JsonDictionary;
+                if (subDict != null)
+                {
+                    // Try x/y/z first, then r/g/b
+                    float x = subDict.ContainsKey("x") ? Convert.ToSingle(subDict["x"]) :
+                              subDict.ContainsKey("r") ? Convert.ToSingle(subDict["r"]) : defaultValue.X;
+                    float y = subDict.ContainsKey("y") ? Convert.ToSingle(subDict["y"]) :
+                              subDict.ContainsKey("g") ? Convert.ToSingle(subDict["g"]) : defaultValue.Y;
+                    float z = subDict.ContainsKey("z") ? Convert.ToSingle(subDict["z"]) :
+                              subDict.ContainsKey("b") ? Convert.ToSingle(subDict["b"]) : defaultValue.Z;
+                    return new Vector3(x, y, z);
                 }
             }
             return defaultValue;
@@ -416,14 +430,7 @@ namespace HamsterMall
 
                     if (lightExtras.ContainsKey("color"))
                     {
-                        var colorDict = lightExtras["color"] as SharpGLTF.IO.JsonDictionary;
-                        if (colorDict != null)
-                        {
-                            lightColor = new Vector3(
-                                Convert.ToSingle(colorDict["r"]),
-                                Convert.ToSingle(colorDict["g"]),
-                                Convert.ToSingle(colorDict["b"]));
-                        }
+                        lightColor = ReadVec3FromExtras(lightExtras, "color", lightColor);
                     }
                 }
 

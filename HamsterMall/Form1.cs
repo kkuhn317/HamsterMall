@@ -1,4 +1,4 @@
-using SharpGLTF.Runtime;
+﻿using SharpGLTF.Runtime;
 using SharpGLTF.Schema2;
 using System;
 using System.Collections.Generic;
@@ -24,8 +24,9 @@ namespace HamsterMall
             InitializeComponent();
         }
 
-
-        // Create MESHWORLD
+        // ═══════════════════════════════════════════════════════════
+        //  Create MESHWORLD tab
+        // ═══════════════════════════════════════════════════════════
 
 
         private void Ambient_Click(object sender, EventArgs e)
@@ -75,7 +76,9 @@ namespace HamsterMall
             }
         }
 
-        // Extract MESHWORLD
+        // ═══════════════════════════════════════════════════════════
+        //  Extract MESHWORLD tab
+        // ═══════════════════════════════════════════════════════════
 
         private void meshWorldLoad_Click(object sender, EventArgs e)
         {
@@ -85,7 +88,6 @@ namespace HamsterMall
                 if (openFileDialog.ShowDialog() == DialogResult.OK)
                 {
                     loadedMeshWorldPath = openFileDialog.FileName;
-                    //MessageBox.Show($"Loaded: {System.IO.Path.GetFileName(loadedMeshWorldPath)}", "File Loaded");
                     meshworld_label.Text = loadedMeshWorldPath;
                 }
             }
@@ -114,7 +116,6 @@ namespace HamsterMall
                 return;
             }
 
-            // Grab the boolean from the checkbox!
             bool keepFolders = chkUseHierarchy.Checked;
             bool thorough = chkThorough.Checked;
 
@@ -123,7 +124,6 @@ namespace HamsterMall
                 saveFileDialog.Filter = "glTF Binary (*.glb)|*.glb";
                 if (saveFileDialog.ShowDialog() == DialogResult.OK)
                 {
-                    // Pass the boolean into the extractor!
                     MeshWorldExtractor.ExtractToGLTF(loadedMeshWorldPath, saveFileDialog.FileName, loadedTexturePath, keepFolders, thorough);
                     MessageBox.Show("Extracted to glTF successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }

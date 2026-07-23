@@ -21,7 +21,6 @@ namespace HamsterMall
         };
 
         // Collected during BuildGLTFNode, applied to Schema2.Material after ToGltf2()
-        // Only used in thorough mode
         private class MaterialExtras
         {
             public string materialName;
@@ -45,8 +44,8 @@ namespace HamsterMall
             Vector3 rootBoundMin = Vector3.Zero;
             Vector3 rootBoundMax = Vector3.Zero;
 
-            // Material extras to apply after ToGltf2() (thorough mode only)
-            List<MaterialExtras> pendingMaterialExtras = thorough ? new List<MaterialExtras>() : null;
+            // Material extras to apply after ToGltf2() — always stored so Blender Custom Properties have them
+            List<MaterialExtras> pendingMaterialExtras = new List<MaterialExtras>();
 
             using (FileStream fileStream = File.OpenRead(inputMeshWorldPath))
             using (BinaryReader reader = new BinaryReader(fileStream))
@@ -101,10 +100,10 @@ namespace HamsterMall
             var model = sceneBuilder.ToGltf2();
             var scene = model.DefaultScene;
 
-            // --- APPLY MATERIAL EXTRAS (thorough mode only) ---
-            // MaterialBuilder (Toolkit) doesn't have Extras API, so we apply
-            // after ToGltf2() on Schema2.Material objects.
-            if (thorough && pendingMaterialExtras != null)
+            // --- APPLY MATERIAL EXTRAS ---
+            // Thorough mode: writes all four fields (ambient, specular, power, hasReflection).
+            // Non-thorough mode: writes only ambient and hasReflection (specular/power use PBR sliders).
+            if (pendingMaterialExtras != null)
             {
                 foreach (var matEx in pendingMaterialExtras)
                 {
@@ -112,21 +111,28 @@ namespace HamsterMall
                     if (mat != null)
                     {
                         var dict = mat.TryUseExtrasAsDictionary(true);
-                        dict["ambient"] = BuildVec4Dict(matEx.ambient);
-                        dict["specular"] = BuildVec4Dict(matEx.specular);
-                        dict["power"] = matEx.power;
+                        dict["ambient"] = BuildVec4Array(matEx.ambient);
                         dict["hasReflection"] = matEx.hasReflection;
+
+                        // Only store specular/power in thorough mode — otherwise let the exporter
+                        // derive them from Blender's metallic/roughness sliders
+                        if (thorough)
+                        {
+                            dict["specular"] = BuildVec4Array(matEx.specular);
+                            dict["power"] = matEx.power;
+                        }
                     }
                 }
             }
 
-            // --- STORE SCENE-LEVEL METADATA AS MODEL EXTRAS ---
+            // --- STORE SCENE-LEVEL METADATA ON A DUMMY NODE (so Blender can see it as Custom Properties) ---
 
-            var modelExtras = model.TryUseExtrasAsDictionary(true);
-            modelExtras["backgroundColor"] = BuildVec3Dict(backgroundColor);
-            modelExtras["ambientColor"] = BuildVec3Dict(ambientColor);
-            modelExtras["rootBoundMin"] = BuildVec3Dict(rootBoundMin);
-            modelExtras["rootBoundMax"] = BuildVec3Dict(rootBoundMax);
+            var metaNode = scene.CreateNode("SceneMetadata");
+            var metaExtras = metaNode.TryUseExtrasAsDictionary(true);
+            metaExtras["backgroundColor"] = BuildVec3Array(backgroundColor);
+            metaExtras["ambientColor"] = BuildVec3Array(ambientColor);
+            metaExtras["rootBoundMin"] = BuildVec3Array(rootBoundMin);
+            metaExtras["rootBoundMax"] = BuildVec3Array(rootBoundMax);
 
             // 1. Inject Ref Points (Schema2.Node — has TryUseExtrasAsDictionary ✓)
             var refFolder = useHierarchy ? scene.CreateNode("RefPoints") : null;
@@ -150,10 +156,10 @@ namespace HamsterMall
                 // Store ref point material properties as node extras
                 var rpExtras = rpNode.TryUseExtrasAsDictionary(true);
                 rpExtras["hasColor"] = 1;
-                rpExtras["ambient"] = BuildVec4Dict(rp.properties.ambient);
-                rpExtras["diffuse"] = BuildVec4Dict(rp.properties.diffuse);
-                rpExtras["specular"] = BuildVec4Dict(rp.properties.specular);
-                rpExtras["emissive"] = BuildVec4Dict(rp.properties.emissive);
+                rpExtras["ambient"] = BuildVec4Array(rp.properties.ambient);
+                rpExtras["diffuse"] = BuildVec4Array(rp.properties.diffuse);
+                rpExtras["specular"] = BuildVec4Array(rp.properties.specular);
+                rpExtras["emissive"] = BuildVec4Array(rp.properties.emissive);
                 rpExtras["power"] = rp.properties.power;
                 rpExtras["hasReflection"] = rp.properties.hasReflection;
                 rpExtras["texture"] = rp.properties.texture ?? "";
@@ -201,7 +207,7 @@ namespace HamsterMall
 
                 var lightExtras = lNode.TryUseExtrasAsDictionary(true);
                 lightExtras["type"] = l.type;
-                lightExtras["color"] = BuildColorDict(l.color);
+                lightExtras["color"] = BuildColorArray(l.color);
 
                 dNode.LocalTransform = new AffineTransform(
                     new Vector3(0.2f),
@@ -224,34 +230,21 @@ namespace HamsterMall
             model.SaveGLB(outputGltfPath);
         }
 
-        // ─── HELPERS: Build JsonDictionary for Vector types ───
+        // ─── HELPERS: Build arrays for Vector types (JSON arrays → Blender float arrays) ───
 
-        private static SharpGLTF.IO.JsonDictionary BuildVec3Dict(Vector3 v)
+        private static List<object> BuildVec3Array(Vector3 v)
         {
-            var dict = new SharpGLTF.IO.JsonDictionary();
-            dict["x"] = v.X;
-            dict["y"] = v.Y;
-            dict["z"] = v.Z;
-            return dict;
+            return new List<object> { v.X, v.Y, v.Z };
         }
 
-        private static SharpGLTF.IO.JsonDictionary BuildVec4Dict(Vector4 v)
+        private static List<object> BuildVec4Array(Vector4 v)
         {
-            var dict = new SharpGLTF.IO.JsonDictionary();
-            dict["x"] = v.X;
-            dict["y"] = v.Y;
-            dict["z"] = v.Z;
-            dict["w"] = v.W;
-            return dict;
+            return new List<object> { v.X, v.Y, v.Z, v.W };
         }
 
-        private static SharpGLTF.IO.JsonDictionary BuildColorDict(Vector3 v)
+        private static List<object> BuildColorArray(Vector3 v)
         {
-            var dict = new SharpGLTF.IO.JsonDictionary();
-            dict["r"] = v.X;
-            dict["g"] = v.Y;
-            dict["b"] = v.Z;
-            return dict;
+            return new List<object> { v.X, v.Y, v.Z };
         }
 
         // ─── BINARY READERS ───
@@ -380,10 +373,10 @@ namespace HamsterMall
                         material.WithEmissive(new Vector3(g.emissive.X, g.emissive.Y, g.emissive.Z));
                     }
 
-                    // Simple mode: map MESHWORLD specular→metallic and power→roughness
-                    // so material data survives round-trip via the exporter's PBR fallback.
-                    // Thorough mode: store as extras instead (more precise, preserves RGB specular).
-                    if (thorough && pendingMaterialExtras != null)
+                    // Store material extras for fields that PBR sliders can't represent.
+                    // Non-thorough: store only ambient and hasReflection (specular/power use PBR sliders).
+                    // Thorough: store all four (ambient, specular, power, hasReflection).
+                    if (thorough)
                     {
                         pendingMaterialExtras.Add(new MaterialExtras
                         {
@@ -396,7 +389,17 @@ namespace HamsterMall
                     }
                     else
                     {
-                        // Simple mode: specular RGB → metallic (averaged), power → roughness (inverted)
+                        // Non-thorough: only store what PBR can't represent
+                        pendingMaterialExtras.Add(new MaterialExtras
+                        {
+                            materialName = g.texture ?? "Default",
+                            ambient = g.ambient,
+                            specular = Vector4.Zero,
+                            power = 0,
+                            hasReflection = g.hasReflection
+                        });
+
+                        // Also map specular→metallic and power→roughness for Blender slider editing
                         float metallic = (g.specular.X + g.specular.Y + g.specular.Z) / 3.0f;
                         float roughness = 1.0f - System.Math.Min(g.power / 100.0f, 1.0f);
                         material.WithMetallicRoughness(metallic, roughness);
