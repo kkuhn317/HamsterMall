@@ -187,34 +187,66 @@ namespace HamsterMall
                 }
             }
 
-            // 3. Inject Lights — paired "Light_XX" + "Direction_XX" nodes
+            // 3. Inject Lights — as real glTF PunctualLights
+            // MESHWORLD lights are all directional. We create a single node per light
+            // with a PunctualLight (Directional) and set its rotation to point in the
+            // direction stored in the MESHWORLD file.
             var lightsFolder = useHierarchy ? scene.CreateNode("Lights") : null;
             int lIdx = 0;
             foreach (var l in lights)
             {
                 string lightName = $"Light_{lIdx:D2}";
-                string dirName = $"Direction_{lIdx:D2}";
                 lIdx++;
 
                 var lNode = lightsFolder != null ? lightsFolder.CreateNode(lightName) : scene.CreateNode(lightName);
-                var dNode = lightsFolder != null ? lightsFolder.CreateNode(dirName) : scene.CreateNode(dirName);
 
+                // Position
                 lNode.LocalTransform = new AffineTransform(
                     new Vector3(0.2f),
                     Quaternion.Identity,
                     l.position
                 );
 
+                // Calculate rotation so the light points from position toward direction.
+                // MESHWORLD stores direction as a point in space; the light direction is
+                // (direction - position) normalized.
+                Vector3 dir = Vector3.Normalize(l.direction - l.position);
+                // glTF lights point down -Z by default. Build a rotation that maps -Z to dir.
+                Vector3 forward = new Vector3(0, 0, -1);
+                if (dir != Vector3.Zero && dir != forward)
+                {
+                    float dot = Vector3.Dot(forward, dir);
+                    if (dot > 0.9999f)
+                    {
+                        // Already pointing forward
+                    }
+                    else if (dot < -0.9999f)
+                    {
+                        // Pointing backward — rotate 180° around Y
+                        lNode.LocalTransform = new AffineTransform(
+                            new Vector3(0.2f),
+                            Quaternion.CreateFromAxisAngle(new Vector3(0, 1, 0), (float)Math.PI),
+                            l.position
+                        );
+                    }
+                    else
+                    {
+                        Vector3 axis = Vector3.Normalize(Vector3.Cross(forward, dir));
+                        float angle = (float)Math.Acos(dot);
+                        Quaternion quat = Quaternion.CreateFromAxisAngle(axis, angle);
+                        lNode.LocalTransform = new AffineTransform(
+                            new Vector3(0.2f),
+                            quat,
+                            l.position
+                        );
+                    }
+                }
+
+                // Store extras for MESHWORLD round-trip data that PunctualLight can't represent
                 var lightExtras = lNode.TryUseExtrasAsDictionary(true);
                 lightExtras["type"] = l.type;
-                lightExtras["color"] = BuildColorArray(l.color);
 
-                dNode.LocalTransform = new AffineTransform(
-                    new Vector3(0.2f),
-                    Quaternion.Identity,
-                    l.direction
-                );
-
+                // Attach real glTF PunctualLight so Blender shows an actual light
                 try
                 {
                     var punctualLight = model.CreatePunctualLight(SharpGLTF.Schema2.PunctualLightType.Directional);
@@ -223,7 +255,7 @@ namespace HamsterMall
                 }
                 catch
                 {
-                    Console.WriteLine($"[WARNING] Could not attach physical light to {lightName}.");
+                    Console.WriteLine($"[WARNING] Could not attach PunctualLight to {lightName}.");
                 }
             }
 

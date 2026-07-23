@@ -1,4 +1,4 @@
-﻿using SharpGLTF.Runtime;
+using SharpGLTF.Runtime;
 using SharpGLTF.Schema2;
 using System;
 using System.Collections.Generic;

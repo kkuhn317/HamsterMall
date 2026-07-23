@@ -98,7 +98,7 @@ namespace HamsterMall
                 if (_folderNames.Contains(node.Name))
                     continue;
 
-                if (!node.Name.StartsWith("C:") && !node.Name.StartsWith("Light") && !node.Name.StartsWith("Direction"))
+                if (!node.Name.StartsWith("C:") && node.PunctualLight == null)
                 {
                     if (node.VisualParent == null || !_folderNames.Contains(node.VisualParent.Name))
                     {
@@ -401,37 +401,23 @@ namespace HamsterMall
 
         private static void WriteLights(CustomWriter writer, ModelRoot model)
         {
-            // Collect light and direction nodes, paired by index suffix
+            // Collect ALL nodes that have a PunctualLight attached, regardless of name.
             var lightNodes = model.LogicalNodes
-                .Where(n => n.Name.StartsWith("Light_"))
-                .OrderBy(n => n.Name)
-                .ToList();
-            var directionNodes = model.LogicalNodes
-                .Where(n => n.Name.StartsWith("Direction_"))
-                .OrderBy(n => n.Name)
+                .Where(n => n.PunctualLight != null)
                 .ToList();
 
             int LightCount = lightNodes.Count;
             writer.Write(LightCount);
 
-            for (int i = 0; i < LightCount; i++)
+            foreach (var lightNode in lightNodes)
             {
-                var lightNode = lightNodes[i];
-
                 // Light type — read from extras, default to 0
                 int lightType = 0;
-                Vector3 lightColor = new Vector3(1.0f, 1.0f, 1.0f);
 
                 var lightExtras = lightNode.TryUseExtrasAsDictionary(false);
-                if (lightExtras != null)
+                if (lightExtras != null && lightExtras.ContainsKey("type"))
                 {
-                    if (lightExtras.ContainsKey("type"))
-                        lightType = Convert.ToInt32(lightExtras["type"]);
-
-                    if (lightExtras.ContainsKey("color"))
-                    {
-                        lightColor = ReadVec3FromExtras(lightExtras, "color", lightColor);
-                    }
+                    lightType = Convert.ToInt32(lightExtras["type"]);
                 }
 
                 writer.Write(lightType);
@@ -442,22 +428,26 @@ namespace HamsterMall
                 writer.Write(lightPos.Y * 50.0f);
                 writer.Write(-lightPos.Z * 50.0f);
 
-                // Direction — use paired Direction_XX node if available
-                Vector3 dirPos;
-                if (i < directionNodes.Count)
+                // Direction — computed from the light node's rotation.
+                // glTF lights point down -Z. Transform -Z by the node's world rotation.
+                Matrix4x4 world = lightNode.WorldMatrix;
+                Vector3 forward = new Vector3(0, 0, -1);
+                Vector3 dir = Vector3.TransformNormal(forward, world);
+                if (dir.Length() < 0.0001f)
                 {
-                    dirPos = directionNodes[i].WorldMatrix.Translation;
+                    dir = new Vector3(0, 0, -1);
                 }
-                else
-                {
-                    // No direction node — default forward
-                    dirPos = lightPos + new Vector3(0, 0, -1);
-                }
+                dir = Vector3.Normalize(dir);
+                // MESHWORLD direction is a point in space, not a unit vector.
+                // Store as position + direction (a point some distance away).
+                Vector3 dirPos = lightPos + dir;
+
                 writer.Write(dirPos.X * 50.0f);
                 writer.Write(dirPos.Y * 50.0f);
                 writer.Write(-dirPos.Z * 50.0f);
 
-                // Color
+                // Color — from PunctualLight (Blender's Light Properties panel)
+                Vector3 lightColor = lightNode.PunctualLight.Color;
                 writer.Write(lightColor.X);
                 writer.Write(lightColor.Y);
                 writer.Write(lightColor.Z);
@@ -553,7 +543,7 @@ namespace HamsterMall
                 }
 
                 if (!Node.Name.StartsWith("REF:") && !Node.Mesh.Name.StartsWith("C:") && !Node.Name.StartsWith("C:") &&
-                    !Node.Name.StartsWith("Light_") && !Node.Name.StartsWith("Direction_"))
+                    Node.PunctualLight == null)
                 {
                     Mesh Mesh = Node.Mesh;
 
