@@ -118,13 +118,21 @@ namespace HamsterMall
 
             bool keepFolders = chkUseHierarchy.Checked;
             bool thorough = chkThorough.Checked;
+            bool embedTextures = chkEmbedTextures.Checked;
 
             using (SaveFileDialog saveFileDialog = new SaveFileDialog())
             {
-                saveFileDialog.Filter = "glTF Binary (*.glb)|*.glb";
+                if (embedTextures)
+                {
+                    saveFileDialog.Filter = "glTF Binary (*.glb)|*.glb";
+                }
+                else
+                {
+                    saveFileDialog.Filter = "glTF Text (*.gltf)|*.gltf";
+                }
                 if (saveFileDialog.ShowDialog() == DialogResult.OK)
                 {
-                    MeshWorldExtractor.ExtractToGLTF(loadedMeshWorldPath, saveFileDialog.FileName, loadedTexturePath, keepFolders, thorough);
+                    MeshWorldExtractor.ExtractToGLTF(loadedMeshWorldPath, saveFileDialog.FileName, loadedTexturePath, keepFolders, thorough, embedTextures);
                     MessageBox.Show("Extracted to glTF successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }

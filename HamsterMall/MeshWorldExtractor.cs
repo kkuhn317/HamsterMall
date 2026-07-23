@@ -30,7 +30,7 @@ namespace HamsterMall
             public int hasReflection;
         }
 
-        public static void ExtractToGLTF(string inputMeshWorldPath, string outputGltfPath, string customTextureDir, bool useHierarchy, bool thorough)
+        public static void ExtractToGLTF(string inputMeshWorldPath, string outputGltfPath, string customTextureDir, bool useHierarchy, bool thorough, bool embedTextures)
         {
             List<Vertex> verts = new List<Vertex>();
             List<mesh> meshes = new List<mesh>();
@@ -259,7 +259,19 @@ namespace HamsterMall
                 }
             }
 
-            model.SaveGLB(outputGltfPath);
+            // --- SAVE ---
+            if (embedTextures)
+            {
+                // Save as GLB with textures embedded
+                model.SaveGLB(outputGltfPath);
+            }
+            else
+            {
+                // Save as GLTF with external texture files.
+                // SaveGLTF writes images as separate satellite files automatically.
+                string gltfPath = Path.ChangeExtension(outputGltfPath, ".gltf");
+                model.SaveGLTF(gltfPath);
+            }
         }
 
         // ─── HELPERS: Build arrays for Vector types (JSON arrays → Blender float arrays) ───

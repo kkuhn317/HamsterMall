@@ -73,18 +73,21 @@ namespace HamsterMall
 
         private static void WriteTextures(ModelRoot model, string textureDirectoryPath)
         {
-            var textures = model.LogicalNodes
-                .SelectMany(node => node.Mesh?.Primitives ?? Enumerable.Empty<MeshPrimitive>())
-                .Select(primitive => primitive.Material?.FindChannel("BaseColor")?.Texture)
-                .Where(texture => texture != null)
-                .GroupBy(texture => texture.PrimaryImage.Name)
-                .Select(texture => texture.First());
+            // Collect unique textures from mesh primitives.
+            var textures = model.LogicalMaterials
+                .Select(mat => new
+                {
+                    Image = mat.FindChannel("BaseColor")?.Texture?.PrimaryImage,
+                    MaterialName = mat.Name
+                })
+                .Where(x => x.Image != null)
+                .GroupBy(x => x.Image.Name)
+                .Select(g => g.First());
 
-            foreach (var texture in textures)
+            foreach (var entry in textures)
             {
-                var image = texture.PrimaryImage;
-                var pngBytes = image.Content.Content.ToArray();
-                var pngPath = Path.Combine(textureDirectoryPath, image.Name + ".png");
+                var pngBytes = entry.Image.Content.Content.ToArray();
+                var pngPath = Path.Combine(textureDirectoryPath, entry.Image.Name + ".png");
                 File.WriteAllBytes(pngPath, pngBytes);
             }
         }
@@ -237,10 +240,13 @@ namespace HamsterMall
                     if (REF && textureName == null && node.Mesh != null)
                     {
                         var Primitive = node.Mesh.Primitives;
-                        var texture = Primitive[0].Material?.FindChannel("BaseColor")?.Texture;
-                        if (texture != null)
+                        if (Primitive.Count > 0)
                         {
-                            textureName = texture.PrimaryImage.Name;
+                            var tex = Primitive[0].Material?.FindChannel("BaseColor")?.Texture;
+                            if (tex != null)
+                            {
+                                textureName = tex.PrimaryImage.Name;
+                            }
                         }
                     }
 
@@ -596,20 +602,17 @@ namespace HamsterMall
                         var texture = Primitive.Material?.FindChannel("BaseColor")?.Texture;
                         if (texture != null)
                         {
-                            if (!texture.PrimaryImage.Name.EndsWith(".png") && !texture.PrimaryImage.Name.EndsWith(".bmp"))
+                            string texName = texture.PrimaryImage.Name;
+
+                            if (texName == "BlueChecker" || texName == "BrightGreenChecker" || texName == "GreenChecker" ||
+                                texName == "OrangeChecker" || texName == "PinkChecker" || texName == "PurpleChecker" ||
+                                texName == "RedChecker")
                             {
-                                if (texture.PrimaryImage.Name == "BlueChecker" || texture.PrimaryImage.Name == "BrightGreenChecker" || texture.PrimaryImage.Name == "GreenChecker" || texture.PrimaryImage.Name == "OrangeChecker" || texture.PrimaryImage.Name == "PinkChecker" || texture.PrimaryImage.Name == "PurpleChecker" || texture.PrimaryImage.Name == "RedChecker")
-                                {
-                                    g.texture = texture.PrimaryImage.Name + ".bmp";
-                                }
-                                else
-                                {
-                                    g.texture = texture.PrimaryImage.Name + ".png";
-                                }
+                                g.texture = texName + ".bmp";
                             }
                             else
                             {
-                                g.texture = texture.PrimaryImage.Name;
+                                g.texture = texName + ".png";
                             }
                         }
 

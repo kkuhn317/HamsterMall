@@ -42,13 +42,14 @@ namespace HamsterMall
             this.tabControl1 = new System.Windows.Forms.TabControl();
             this.tabPage1 = new System.Windows.Forms.TabPage();
             this.tabPage2 = new System.Windows.Forms.TabPage();
+            this.chkThorough = new System.Windows.Forms.CheckBox();
             this.chkUseHierarchy = new System.Windows.Forms.CheckBox();
             this.textures_label = new System.Windows.Forms.Label();
             this.textureFolder_button = new System.Windows.Forms.Button();
             this.button2 = new System.Windows.Forms.Button();
             this.meshworld_label = new System.Windows.Forms.Label();
             this.loadMeshworld = new System.Windows.Forms.Button();
-            this.chkThorough = new System.Windows.Forms.CheckBox();
+            this.chkEmbedTextures = new System.Windows.Forms.CheckBox();
             ((System.ComponentModel.ISupportInitialize)(this.Ambient)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.Background)).BeginInit();
             this.tabControl1.SuspendLayout();
@@ -143,7 +144,7 @@ namespace HamsterMall
             this.tabControl1.Location = new System.Drawing.Point(12, 12);
             this.tabControl1.Name = "tabControl1";
             this.tabControl1.SelectedIndex = 0;
-            this.tabControl1.Size = new System.Drawing.Size(318, 285);
+            this.tabControl1.Size = new System.Drawing.Size(318, 298);
             this.tabControl1.TabIndex = 7;
             // 
             // tabPage1
@@ -165,6 +166,7 @@ namespace HamsterMall
             // 
             // tabPage2
             // 
+            this.tabPage2.Controls.Add(this.chkEmbedTextures);
             this.tabPage2.Controls.Add(this.chkThorough);
             this.tabPage2.Controls.Add(this.chkUseHierarchy);
             this.tabPage2.Controls.Add(this.textures_label);
@@ -175,15 +177,25 @@ namespace HamsterMall
             this.tabPage2.Location = new System.Drawing.Point(4, 22);
             this.tabPage2.Name = "tabPage2";
             this.tabPage2.Padding = new System.Windows.Forms.Padding(3);
-            this.tabPage2.Size = new System.Drawing.Size(310, 259);
+            this.tabPage2.Size = new System.Drawing.Size(310, 272);
             this.tabPage2.TabIndex = 1;
             this.tabPage2.Text = "Extract MESHWORLD";
             this.tabPage2.UseVisualStyleBackColor = true;
             // 
+            // chkThorough
+            // 
+            this.chkThorough.AutoSize = true;
+            this.chkThorough.Location = new System.Drawing.Point(9, 189);
+            this.chkThorough.Name = "chkThorough";
+            this.chkThorough.Size = new System.Drawing.Size(209, 17);
+            this.chkThorough.TabIndex = 6;
+            this.chkThorough.Text = "Thorough Extraction (preserve all data)";
+            this.chkThorough.UseVisualStyleBackColor = true;
+            // 
             // chkUseHierarchy
             // 
             this.chkUseHierarchy.AutoSize = true;
-            this.chkUseHierarchy.Location = new System.Drawing.Point(9, 154);
+            this.chkUseHierarchy.Location = new System.Drawing.Point(9, 166);
             this.chkUseHierarchy.Name = "chkUseHierarchy";
             this.chkUseHierarchy.Size = new System.Drawing.Size(146, 17);
             this.chkUseHierarchy.TabIndex = 5;
@@ -210,7 +222,7 @@ namespace HamsterMall
             // 
             // button2
             // 
-            this.button2.Location = new System.Drawing.Point(9, 199);
+            this.button2.Location = new System.Drawing.Point(6, 212);
             this.button2.Name = "button2";
             this.button2.Size = new System.Drawing.Size(143, 54);
             this.button2.TabIndex = 2;
@@ -236,21 +248,21 @@ namespace HamsterMall
             this.loadMeshworld.UseVisualStyleBackColor = true;
             this.loadMeshworld.Click += new System.EventHandler(this.meshWorldLoad_Click);
             // 
-            // chkThorough
+            // chkEmbedTextures
             // 
-            this.chkThorough.AutoSize = true;
-            this.chkThorough.Location = new System.Drawing.Point(9, 177);
-            this.chkThorough.Name = "chkThorough";
-            this.chkThorough.Size = new System.Drawing.Size(209, 17);
-            this.chkThorough.TabIndex = 6;
-            this.chkThorough.Text = "Thorough Extraction (preserve all data)";
-            this.chkThorough.UseVisualStyleBackColor = true;
+            this.chkEmbedTextures.AutoSize = true;
+            this.chkEmbedTextures.Location = new System.Drawing.Point(9, 143);
+            this.chkEmbedTextures.Name = "chkEmbedTextures";
+            this.chkEmbedTextures.Size = new System.Drawing.Size(103, 17);
+            this.chkEmbedTextures.TabIndex = 8;
+            this.chkEmbedTextures.Text = "Embed Textures";
+            this.chkEmbedTextures.UseVisualStyleBackColor = true;
             // 
             // HamsterMall
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(345, 307);
+            this.ClientSize = new System.Drawing.Size(345, 322);
             this.Controls.Add(this.tabControl1);
             this.Name = "HamsterMall";
             this.Text = "HamsterMall";
@@ -287,6 +299,7 @@ namespace HamsterMall
         private System.Windows.Forms.Button textureFolder_button;
         private System.Windows.Forms.CheckBox chkUseHierarchy;
         private System.Windows.Forms.CheckBox chkThorough;
+        private System.Windows.Forms.CheckBox chkEmbedTextures;
     }
 }
 
