@@ -100,6 +100,26 @@ namespace HamsterMall
             var model = sceneBuilder.ToGltf2();
             var scene = model.DefaultScene;
 
+            // --- SET IMAGE NAMES ---
+            // SharpGLTF doesn't always propagate image names from MaterialBuilder,
+            // especially for GLB-embedded textures created from byte arrays.
+            // Set them explicitly here so the exporter can recover the original
+            // texture filename. The material name was set to the texture name
+            // (without extension) during BuildGLTFNode.
+            foreach (var mat in model.LogicalMaterials)
+            {
+                var baseColorTex = mat.FindChannel("BaseColor")?.Texture;
+                if (baseColorTex != null)
+                {
+                    var img = baseColorTex.PrimaryImage;
+                    if (img != null && string.IsNullOrEmpty(img.Name))
+                    {
+                        // Material name is the texture name without extension
+                        img.Name = Path.GetFileNameWithoutExtension(mat.Name);
+                    }
+                }
+            }
+
             // --- APPLY MATERIAL EXTRAS ---
             // Thorough mode: writes all four fields (ambient, specular, power, hasReflection).
             // Non-thorough mode: writes only ambient and hasReflection (specular/power use PBR sliders).
@@ -268,7 +288,11 @@ namespace HamsterMall
             else
             {
                 // Save as GLTF with external texture files.
-                // SaveGLTF writes images as separate satellite files automatically.
+                // SharpGLTF writes satellite image files using its own naming convention
+                // (modelname_0.png, etc.) — the image Name property is preserved inside
+                // the GLTF JSON (Blender shows correct names) but the satellite files
+                // on disk get the wrong names. The exporter's WriteTextures method handles
+                // writing correctly-named files from the GLTF, so this is OK for round-trip.
                 string gltfPath = Path.ChangeExtension(outputGltfPath, ".gltf");
                 model.SaveGLTF(gltfPath);
             }

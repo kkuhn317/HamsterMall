@@ -86,8 +86,14 @@ namespace HamsterMall
 
             foreach (var entry in textures)
             {
+                string imageName = entry.Image.Name;
+                // If image has no name (e.g. embedded in GLB by another tool), fall back to material name
+                if (string.IsNullOrEmpty(imageName))
+                    imageName = entry.MaterialName ?? "texture";
+                // Strip any existing extension so we don't get "name.png.png"
+                imageName = Path.GetFileNameWithoutExtension(imageName);
                 var pngBytes = entry.Image.Content.Content.ToArray();
-                var pngPath = Path.Combine(textureDirectoryPath, entry.Image.Name + ".png");
+                var pngPath = Path.Combine(textureDirectoryPath, imageName + ".png");
                 File.WriteAllBytes(pngPath, pngBytes);
             }
         }
@@ -602,17 +608,22 @@ namespace HamsterMall
                         var texture = Primitive.Material?.FindChannel("BaseColor")?.Texture;
                         if (texture != null)
                         {
-                            string texName = texture.PrimaryImage.Name;
+                            string texName = texture.PrimaryImage?.Name;
+                            if (!string.IsNullOrEmpty(texName))
+                            {
+                                // Strip extension if present — extractor stores names without extension
+                                texName = Path.GetFileNameWithoutExtension(texName);
 
-                            if (texName == "BlueChecker" || texName == "BrightGreenChecker" || texName == "GreenChecker" ||
-                                texName == "OrangeChecker" || texName == "PinkChecker" || texName == "PurpleChecker" ||
-                                texName == "RedChecker")
-                            {
-                                g.texture = texName + ".bmp";
-                            }
-                            else
-                            {
-                                g.texture = texName + ".png";
+                                if (texName == "BlueChecker" || texName == "BrightGreenChecker" || texName == "GreenChecker" ||
+                                    texName == "OrangeChecker" || texName == "PinkChecker" || texName == "PurpleChecker" ||
+                                    texName == "RedChecker")
+                                {
+                                    g.texture = texName + ".bmp";
+                                }
+                                else
+                                {
+                                    g.texture = texName + ".png";
+                                }
                             }
                         }
 
