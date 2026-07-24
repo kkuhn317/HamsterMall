@@ -565,7 +565,10 @@ namespace HamsterMall
                     foreach (MeshPrimitive Primitive in Mesh.Primitives)
                     {
                         geom g = new geom();
-                        g.name = Node.Name;
+                        // Strip Blender-style ".001", ".002" suffixes from geom names.
+                        // The game uses exact string matching for event names (E:LIMIT, E:JUMP, etc.)
+                        // so "E:LIMIT.001" would NOT match "E:LIMIT" and the event would be ignored.
+                        g.name = StripBlenderSuffix(Node.Name);
                         g.strips = new List<strip>();
 
                         g.diffuse = Primitive.Material?.FindChannel("BaseColor")?.Parameter ?? Vector4.One;
@@ -808,6 +811,29 @@ namespace HamsterMall
             var key = (Math.Min(v1, v2), Math.Max(v1, v2));
             if (!dict.ContainsKey(key)) return 0;
             return dict[key].Count(t => t != selfTri && unvisited.Contains(t));
+        }
+
+        /// <summary>
+        /// Strips Blender-style numeric suffixes (.001, .002, etc.) from a name.
+        /// The game uses exact string matching for event names (E:LIMIT, N:GOAL, etc.),
+        /// so "E:LIMIT.001" must be cleaned to "E:LIMIT" for the event to trigger.
+        /// </summary>
+        private static string StripBlenderSuffix(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return name;
+
+            int dotIdx = name.LastIndexOf(".");
+            if (dotIdx > 0 && dotIdx + 1 < name.Length)
+            {
+                string afterDot = name.Substring(dotIdx + 1);
+                bool isNumeric = true;
+                foreach (char c in afterDot)
+                {
+                    if (!char.IsDigit(c)) { isNumeric = false; break; }
+                }
+                if (isNumeric) return name.Substring(0, dotIdx);
+            }
+            return name;
         }
 
         private static bool GetVertexBuffer(MeshPrimitive Primitive, out List<Vector3> VertexBuffer)
