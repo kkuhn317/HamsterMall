@@ -849,12 +849,55 @@ namespace HamsterMall
 
         private static bool GetIndexBuffer(MeshPrimitive Primitive, out List<(int A, int B, int C)> IndexBuffer)
         {
-            IndexBuffer = Primitive.GetTriangleIndices().ToList();
-            if (IndexBuffer?.Count == 0)
+            IndexBuffer = new List<(int A, int B, int C)>();
+
+            // Manually decode triangle indices to avoid GetTriangleIndices() ValueTuple binding issues
+            var indices = Primitive.GetIndices();
+            var primType = Primitive.DrawPrimitiveType;
+
+            if (indices == null || indices.Count == 0)
             {
-                return false;
+                // No index buffer — try sequential vertices
+                var posAccessor = Primitive.GetVertexAccessor("POSITION");
+                if (posAccessor == null) return false;
+                int count = posAccessor.Count;
+
+                if (primType == PrimitiveType.TRIANGLES)
+                {
+                    for (int i = 0; i + 2 < count; i += 3)
+                        IndexBuffer.Add((i, i + 1, i + 2));
+                }
+                else if (primType == PrimitiveType.TRIANGLE_STRIP)
+                {
+                    for (int i = 0; i + 2 < count; i++)
+                    {
+                        if (i % 2 == 0)
+                            IndexBuffer.Add((i, i + 2, i + 1));
+                        else
+                            IndexBuffer.Add((i, i + 1, i + 2));
+                    }
+                }
             }
-            return true;
+            else
+            {
+                if (primType == PrimitiveType.TRIANGLES)
+                {
+                    for (int i = 0; i + 2 < indices.Count; i += 3)
+                        IndexBuffer.Add(((int)indices[i], (int)indices[i + 1], (int)indices[i + 2]));
+                }
+                else if (primType == PrimitiveType.TRIANGLE_STRIP)
+                {
+                    for (int i = 0; i + 2 < indices.Count; i++)
+                    {
+                        if (i % 2 == 0)
+                            IndexBuffer.Add(((int)indices[i], (int)indices[i + 2], (int)indices[i + 1]));
+                        else
+                            IndexBuffer.Add(((int)indices[i], (int)indices[i + 1], (int)indices[i + 2]));
+                    }
+                }
+            }
+
+            return IndexBuffer.Count > 0;
         }
 
         private static bool GetNormalBuffer(MeshPrimitive Primitive, out List<Vector3> NormalBuffer)

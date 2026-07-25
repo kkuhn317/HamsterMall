@@ -10,11 +10,15 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Text.Json.Nodes;
+using System.Reflection;
 
 namespace HamsterMall
 {
     public class MeshWorldExtractor
     {
+        // Cached reflection method for AddTriangle (avoids ValueTuple binding issue)
+        private static MethodInfo _addTriangleMethod;
+
         // Known folder node names that must NOT be treated as ref points
         private static readonly HashSet<string> _folderNames = new HashSet<string>
         {
@@ -105,8 +109,8 @@ namespace HamsterMall
             // SharpGLTF doesn't always propagate image names from MaterialBuilder,
             // especially for GLB-embedded textures created from byte arrays.
             // Set them explicitly here so the exporter can recover the original
-            // texture filename. The material name was set to the texture name
-            // (without extension) during BuildGLTFNode.
+            // texture filename. We search the material's BaseColor texture and
+            // use the texture file path (stored by WithBaseColor(filePath)).
             foreach (var mat in model.LogicalMaterials)
             {
                 var baseColorTex = mat.FindChannel("BaseColor")?.Texture;
@@ -115,8 +119,15 @@ namespace HamsterMall
                     var img = baseColorTex.PrimaryImage;
                     if (img != null && string.IsNullOrEmpty(img.Name))
                     {
-                        // Material name is the texture name without extension
-                        img.Name = Path.GetFileNameWithoutExtension(mat.Name);
+                        // Try to get the texture name from the image's content path
+                        string imgName = img.Name;
+                        if (string.IsNullOrEmpty(imgName))
+                        {
+                            // Fall back to material name only if it looks like a texture name
+                            // (not a geom name that we generated for uniqueness)
+                            imgName = Path.GetFileNameWithoutExtension(mat.Name);
+                        }
+                        img.Name = imgName;
                     }
                 }
             }
@@ -437,7 +448,14 @@ namespace HamsterMall
                 {
                     var meshBuilder = new MeshBuilder<VertexPositionNormal, VertexTexture1, VertexEmpty>(g.name);
 
-                    var material = new MaterialBuilder(g.texture ?? "Default")
+                    // Use a unique material name per geom so materials with different
+                    // specular/IOR don't get merged by SceneBuilder just because they
+                    // share the same texture filename.
+                    string matName = !string.IsNullOrEmpty(g.texture) ? g.texture : "Default";
+                    if (m.geoms.Count > 1 || !string.IsNullOrEmpty(g.name))
+                        matName = g.name ?? matName;
+
+                    var material = new MaterialBuilder(matName)
                         .WithBaseColor(g.diffuse);
 
                     // Write emissive to glTF material so exporter can read it back
@@ -453,7 +471,7 @@ namespace HamsterMall
                     {
                         pendingMaterialExtras.Add(new MaterialExtras
                         {
-                            materialName = g.texture ?? "Default",
+                            materialName = matName,
                             ambient = g.ambient,
                             specular = g.specular,
                             power = g.power,
@@ -465,7 +483,7 @@ namespace HamsterMall
                         // Non-thorough: only store what PBR can't represent
                         pendingMaterialExtras.Add(new MaterialExtras
                         {
-                            materialName = g.texture ?? "Default",
+                            materialName = matName,
                             ambient = g.ambient,
                             specular = Vector4.Zero,
                             power = 0,
@@ -540,7 +558,15 @@ namespace HamsterMall
                             var pC = new VertexBuilder<VertexPositionNormal, VertexTexture1, VertexEmpty>(
                                 new VertexPositionNormal(vertC.X, vertC.Y, vertC.Z, vertC.NX, vertC.NY, vertC.NZ), new VertexTexture1(new Vector2(vertC.U, vertC.V)));
 
-                            primitive.AddTriangle(pA, pB, pC);
+                            // Use reflection to call AddTriangle to avoid ValueTuple runtime binding issue
+                            // (SharpGLTF.Toolkit uses ValueTuple in method signatures, which fails on
+                            // .NET 4.7.2 due to System.ValueTuple facade version mismatch)
+                            if (_addTriangleMethod == null)
+                            {
+                                _addTriangleMethod = primitive.GetType()
+                                    .GetMethod("AddTriangle", new[] { typeof(IVertexBuilder), typeof(IVertexBuilder), typeof(IVertexBuilder) });
+                            }
+                            _addTriangleMethod.Invoke(primitive, new object[] { pA, pB, pC });
                         }
                     }
 
