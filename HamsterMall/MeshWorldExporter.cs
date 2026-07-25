@@ -5,6 +5,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using System.Text.Json.Nodes;
 
 namespace HamsterMall
 {
@@ -36,7 +37,7 @@ namespace HamsterMall
                     Vector3 rootMax = new Vector3(1000000.0f, 1000000.0f, 1000000.0f);
 
                     var metaNode = model.LogicalNodes.FirstOrDefault(n => n.Name == "SceneMetadata");
-                    var extrasDict = metaNode?.TryUseExtrasAsDictionary(false);
+                    var extrasDict = metaNode?.Extras as JsonObject;
                     if (extrasDict != null)
                     {
                         if (extrasDict.ContainsKey("backgroundColor"))
@@ -202,12 +203,12 @@ namespace HamsterMall
                 }
 
                 // Check if this ref point has stored material data in its extras
-                var nodeExtras = node.TryUseExtrasAsDictionary(false);
+                var nodeExtras = node.Extras as JsonObject;
                 bool hasColor = REF;
 
                 if (nodeExtras != null && nodeExtras.ContainsKey("hasColor"))
                 {
-                    hasColor = Convert.ToInt32(nodeExtras["hasColor"]) == 1;
+                    hasColor = Convert.ToInt32(nodeExtras["hasColor"].GetValue<int>()) == 1;
                 }
 
                 if (hasColor)
@@ -231,12 +232,12 @@ namespace HamsterMall
                         emissive = ReadVec4FromExtras(nodeExtras, "emissive", emissive);
 
                         if (nodeExtras.ContainsKey("power"))
-                            power = Convert.ToSingle(nodeExtras["power"]);
+                            power = Convert.ToSingle(nodeExtras["power"].GetValue<float>());
                         if (nodeExtras.ContainsKey("hasReflection"))
-                            hasReflection = Convert.ToInt32(nodeExtras["hasReflection"]);
+                            hasReflection = Convert.ToInt32(nodeExtras["hasReflection"].GetValue<int>());
                         if (nodeExtras.ContainsKey("texture"))
                         {
-                            string tex = nodeExtras["texture"] as string;
+                            string tex = nodeExtras["texture"]?.GetValue<string>();
                             if (!string.IsNullOrEmpty(tex))
                                 textureName = tex;
                         }
@@ -297,58 +298,55 @@ namespace HamsterMall
             }
         }
 
-        private static Vector4 ReadVec4FromExtras(SharpGLTF.IO.JsonDictionary dict, string key, Vector4 defaultValue)
+        private static Vector4 ReadVec4FromExtras(JsonObject dict, string key, Vector4 defaultValue)
         {
-            if (dict.ContainsKey(key))
+            if (dict != null && dict.ContainsKey(key))
             {
                 var val = dict[key];
-                // Array format: [x, y, z, w] (new — Blender float arrays)
-                if (val is IList<object> arr && arr.Count >= 4)
+                // Array format: [x, y, z, w] (Blender float arrays)
+                if (val is JsonArray arr && arr.Count >= 4)
                 {
                     return new Vector4(
-                        Convert.ToSingle(arr[0]),
-                        Convert.ToSingle(arr[1]),
-                        Convert.ToSingle(arr[2]),
-                        Convert.ToSingle(arr[3]));
+                        Convert.ToSingle(arr[0].GetValue<float>()),
+                        Convert.ToSingle(arr[1].GetValue<float>()),
+                        Convert.ToSingle(arr[2].GetValue<float>()),
+                        Convert.ToSingle(arr[3].GetValue<float>()));
                 }
-                // Dict format: {"x":.., "y":.., "z":.., "w":..} (old — Python dict)
-                var subDict = val as SharpGLTF.IO.JsonDictionary;
-                if (subDict != null)
+                // Dict format: {"x":.., "y":.., "z":.., "w":..}
+                if (val is JsonObject subDict)
                 {
                     return new Vector4(
-                        Convert.ToSingle(subDict["x"]),
-                        Convert.ToSingle(subDict["y"]),
-                        Convert.ToSingle(subDict["z"]),
-                        Convert.ToSingle(subDict["w"]));
+                        Convert.ToSingle(subDict["x"].GetValue<float>()),
+                        Convert.ToSingle(subDict["y"].GetValue<float>()),
+                        Convert.ToSingle(subDict["z"].GetValue<float>()),
+                        Convert.ToSingle(subDict["w"].GetValue<float>()));
                 }
             }
             return defaultValue;
         }
 
-        private static Vector3 ReadVec3FromExtras(SharpGLTF.IO.JsonDictionary dict, string key, Vector3 defaultValue)
+        private static Vector3 ReadVec3FromExtras(JsonObject dict, string key, Vector3 defaultValue)
         {
-            if (dict.ContainsKey(key))
+            if (dict != null && dict.ContainsKey(key))
             {
                 var val = dict[key];
-                // Array format: [x, y, z] (new — Blender float arrays)
-                if (val is IList<object> arr && arr.Count >= 3)
+                // Array format: [x, y, z]
+                if (val is JsonArray arr && arr.Count >= 3)
                 {
                     return new Vector3(
-                        Convert.ToSingle(arr[0]),
-                        Convert.ToSingle(arr[1]),
-                        Convert.ToSingle(arr[2]));
+                        Convert.ToSingle(arr[0].GetValue<float>()),
+                        Convert.ToSingle(arr[1].GetValue<float>()),
+                        Convert.ToSingle(arr[2].GetValue<float>()));
                 }
-                // Dict format: {"x":.., "y":.., "z":..} or {"r":.., "g":.., "b":..} (old — Python dict)
-                var subDict = val as SharpGLTF.IO.JsonDictionary;
-                if (subDict != null)
+                // Dict format: {"x":.., "y":.., "z":..} or {"r":.., "g":.., "b":..}
+                if (val is JsonObject subDict)
                 {
-                    // Try x/y/z first, then r/g/b
-                    float x = subDict.ContainsKey("x") ? Convert.ToSingle(subDict["x"]) :
-                              subDict.ContainsKey("r") ? Convert.ToSingle(subDict["r"]) : defaultValue.X;
-                    float y = subDict.ContainsKey("y") ? Convert.ToSingle(subDict["y"]) :
-                              subDict.ContainsKey("g") ? Convert.ToSingle(subDict["g"]) : defaultValue.Y;
-                    float z = subDict.ContainsKey("z") ? Convert.ToSingle(subDict["z"]) :
-                              subDict.ContainsKey("b") ? Convert.ToSingle(subDict["b"]) : defaultValue.Z;
+                    float x = subDict.ContainsKey("x") ? Convert.ToSingle(subDict["x"].GetValue<float>()) :
+                              subDict.ContainsKey("r") ? Convert.ToSingle(subDict["r"].GetValue<float>()) : defaultValue.X;
+                    float y = subDict.ContainsKey("y") ? Convert.ToSingle(subDict["y"].GetValue<float>()) :
+                              subDict.ContainsKey("g") ? Convert.ToSingle(subDict["g"].GetValue<float>()) : defaultValue.Y;
+                    float z = subDict.ContainsKey("z") ? Convert.ToSingle(subDict["z"].GetValue<float>()) :
+                              subDict.ContainsKey("b") ? Convert.ToSingle(subDict["b"].GetValue<float>()) : defaultValue.Z;
                     return new Vector3(x, y, z);
                 }
             }
@@ -426,10 +424,10 @@ namespace HamsterMall
                 // Light type — read from extras, default to 0
                 int lightType = 0;
 
-                var lightExtras = lightNode.TryUseExtrasAsDictionary(false);
+                var lightExtras = lightNode.Extras as JsonObject;
                 if (lightExtras != null && lightExtras.ContainsKey("type"))
                 {
-                    lightType = Convert.ToInt32(lightExtras["type"]);
+                    lightType = Convert.ToInt32(lightExtras["type"].GetValue<int>());
                 }
 
                 writer.Write(lightType);
@@ -576,7 +574,7 @@ namespace HamsterMall
 
                         // Specular/power/ambient/hasReflection:
                         // Check material extras first (thorough extraction), fall back to PBR sliders (simple mode / Blender)
-                        var matExtras = Primitive.Material?.TryUseExtrasAsDictionary(false);
+                        var matExtras = Primitive.Material?.Extras as JsonObject;
 
                         if (matExtras != null && matExtras.ContainsKey("ambient"))
                         {
@@ -584,26 +582,29 @@ namespace HamsterMall
                             g.ambient = ReadVec4FromExtras(matExtras, "ambient", g.diffuse);
                             g.specular = ReadVec4FromExtras(matExtras, "specular", Vector4.Zero);
                             if (matExtras.ContainsKey("power"))
-                                g.power = Convert.ToSingle(matExtras["power"]);
+                                g.power = Convert.ToSingle(matExtras["power"].GetValue<float>());
                             if (matExtras.ContainsKey("hasReflection"))
-                                g.hasReflection = Convert.ToInt32(matExtras["hasReflection"]);
+                                g.hasReflection = Convert.ToInt32(matExtras["hasReflection"].GetValue<int>());
                         }
                         else
                         {
-                            // Simple mode: derive from Blender's metallic/roughness sliders
+                            // Simple mode: derive from Blender's IOR/roughness sliders
                             var metRoughChannel = Primitive.Material?.FindChannel("MetallicRoughness");
 
-                            float metallic = 0.0f;
                             float roughness = 1.0f;
 
                             if (metRoughChannel != null)
                             {
-                                metallic = metRoughChannel.Value.Parameter.X;
                                 roughness = metRoughChannel.Value.Parameter.Y;
                             }
 
+                            // Read IOR from KHR_materials_IOR extension
+                            float ior = Primitive.Material?.IndexOfRefraction ?? 1.5f;
+                            float specularAvg = (ior - 1.0f) / 4.0f;
+                            specularAvg = Math.Max(0.0f, Math.Min(1.0f, specularAvg));
+
                             g.ambient = g.diffuse;
-                            g.specular = new Vector4(metallic, metallic, metallic, 1.0f);
+                            g.specular = new Vector4(specularAvg, specularAvg, specularAvg, 1.0f);
                             g.power = Math.Max(1.0f, (1.0f - roughness) * 100.0f);
                             g.hasReflection = 0;
                         }

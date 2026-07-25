@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using System.Text.Json.Nodes;
 
 namespace HamsterMall
 {
@@ -130,7 +131,8 @@ namespace HamsterMall
                     var mat = model.LogicalMaterials.FirstOrDefault(m => m.Name == matEx.materialName);
                     if (mat != null)
                     {
-                        var dict = mat.TryUseExtrasAsDictionary(true);
+                        var dict = mat.Extras as JsonObject ?? new JsonObject();
+                        mat.Extras = dict;
                         dict["ambient"] = BuildVec4Array(matEx.ambient);
                         dict["hasReflection"] = matEx.hasReflection;
 
@@ -148,13 +150,14 @@ namespace HamsterMall
             // --- STORE SCENE-LEVEL METADATA ON A DUMMY NODE (so Blender can see it as Custom Properties) ---
 
             var metaNode = scene.CreateNode("SceneMetadata");
-            var metaExtras = metaNode.TryUseExtrasAsDictionary(true);
+            var metaExtras = metaNode.Extras as JsonObject ?? new JsonObject();
+            metaNode.Extras = metaExtras;
             metaExtras["backgroundColor"] = BuildVec3Array(backgroundColor);
             metaExtras["ambientColor"] = BuildVec3Array(ambientColor);
             metaExtras["rootBoundMin"] = BuildVec3Array(rootBoundMin);
             metaExtras["rootBoundMax"] = BuildVec3Array(rootBoundMax);
 
-            // 1. Inject Ref Points (Schema2.Node — has TryUseExtrasAsDictionary ✓)
+            // 1. Inject Ref Points (Schema2.Node — has Extras property)
             var refFolder = useHierarchy ? scene.CreateNode("RefPoints") : null;
             foreach (var rp in refPoints)
             {
@@ -174,7 +177,8 @@ namespace HamsterMall
                 );
 
                 // Store ref point material properties as node extras
-                var rpExtras = rpNode.TryUseExtrasAsDictionary(true);
+                var rpExtras = rpNode.Extras as JsonObject ?? new JsonObject();
+                rpNode.Extras = rpExtras;
                 rpExtras["hasColor"] = 1;
                 rpExtras["ambient"] = BuildVec4Array(rp.properties.ambient);
                 rpExtras["diffuse"] = BuildVec4Array(rp.properties.diffuse);
@@ -263,7 +267,8 @@ namespace HamsterMall
                 }
 
                 // Store extras for MESHWORLD round-trip data that PunctualLight can't represent
-                var lightExtras = lNode.TryUseExtrasAsDictionary(true);
+                var lightExtras = lNode.Extras as JsonObject ?? new JsonObject();
+                lNode.Extras = lightExtras;
                 lightExtras["type"] = l.type;
 
                 // Attach real glTF PunctualLight so Blender shows an actual light
@@ -300,19 +305,19 @@ namespace HamsterMall
 
         // ─── HELPERS: Build arrays for Vector types (JSON arrays → Blender float arrays) ───
 
-        private static List<object> BuildVec3Array(Vector3 v)
+        private static JsonArray BuildVec3Array(Vector3 v)
         {
-            return new List<object> { v.X, v.Y, v.Z };
+            return new JsonArray(v.X, v.Y, v.Z);
         }
 
-        private static List<object> BuildVec4Array(Vector4 v)
+        private static JsonArray BuildVec4Array(Vector4 v)
         {
-            return new List<object> { v.X, v.Y, v.Z, v.W };
+            return new JsonArray(v.X, v.Y, v.Z, v.W);
         }
 
-        private static List<object> BuildColorArray(Vector3 v)
+        private static JsonArray BuildColorArray(Vector3 v)
         {
-            return new List<object> { v.X, v.Y, v.Z };
+            return new JsonArray(v.X, v.Y, v.Z);
         }
 
         // ─── BINARY READERS ───
@@ -467,10 +472,12 @@ namespace HamsterMall
                             hasReflection = g.hasReflection
                         });
 
-                        // Also map specular→metallic and power→roughness for Blender slider editing
-                        float metallic = (g.specular.X + g.specular.Y + g.specular.Z) / 3.0f;
+                        // Map specular→IOR and power→roughness for Blender slider editing
+                        float specularAvg = (g.specular.X + g.specular.Y + g.specular.Z) / 3.0f;
                         float roughness = 1.0f - System.Math.Min(g.power / 100.0f, 1.0f);
-                        material.WithMetallicRoughness(metallic, roughness);
+                        float ior = 1.0f + specularAvg * 4.0f;
+                        material.WithMetallicRoughness(0.0f, roughness);
+                        material.IndexOfRefraction = ior;
                     }
 
                     // Texture Loading
