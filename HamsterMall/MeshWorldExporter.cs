@@ -588,7 +588,7 @@ namespace HamsterMall
                         }
                         else
                         {
-                            // Simple mode: derive from Blender's IOR/roughness sliders
+                            // Simple mode: derive from Blender's specular/roughness sliders
                             var metRoughChannel = Primitive.Material?.FindChannel("MetallicRoughness");
 
                             float roughness = 1.0f;
@@ -598,13 +598,27 @@ namespace HamsterMall
                                 roughness = metRoughChannel.Value.Parameter.Y;
                             }
 
-                            // Read IOR from KHR_materials_IOR extension
-                            float ior = Primitive.Material?.IndexOfRefraction ?? 1.5f;
-                            float specularAvg = (ior - 1.0f) / 4.0f;
-                            specularAvg = Math.Max(0.0f, Math.Min(1.0f, specularAvg));
+                            // Read specular color and factor from KHR_materials_specular extension
+                            var specColorChannel = Primitive.Material?.FindChannel("SpecularColor");
+                            var specFactorChannel = Primitive.Material?.FindChannel("SpecularFactor");
+
+                            Vector3 specColor = Vector3.One;
+                            float specFactor = 1.0f;
+
+                            if (specColorChannel != null)
+                            {
+                                // .Value.Color returns Vector4 (XYZ = RGB)
+                                var c = specColorChannel.Value.Color;
+                                specColor = new Vector3(c.X, c.Y, c.Z);
+                            }
+
+                            if (specFactorChannel != null)
+                            {
+                                specFactor = specFactorChannel.Value.GetFactor("SpecularFactor");
+                            }
 
                             g.ambient = g.diffuse;
-                            g.specular = new Vector4(specularAvg, specularAvg, specularAvg, 1.0f);
+                            g.specular = new Vector4(specColor * specFactor, 1.0f);
                             g.power = Math.Max(1.0f, (1.0f - roughness) * 100.0f);
                             g.hasReflection = 0;
                         }

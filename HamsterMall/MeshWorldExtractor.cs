@@ -142,18 +142,21 @@ namespace HamsterMall
                     var mat = model.LogicalMaterials.FirstOrDefault(m => m.Name == matEx.materialName);
                     if (mat != null)
                     {
-                        var dict = mat.Extras as JsonObject ?? new JsonObject();
-                        mat.Extras = dict;
+                        var dict = new JsonObject();
                         dict["ambient"] = BuildVec4Array(matEx.ambient);
                         dict["hasReflection"] = matEx.hasReflection;
 
                         // Only store specular/power in thorough mode — otherwise let the exporter
-                        // derive them from Blender's metallic/roughness sliders
+                        // derive them from Blender's specular/roughness sliders
                         if (thorough)
                         {
                             dict["specular"] = BuildVec4Array(matEx.specular);
                             dict["power"] = matEx.power;
                         }
+
+                        // SharpGLTF 1.0.6 Extras setter DeepClones on assignment.
+                        // Populate fully BEFORE assigning.
+                        mat.Extras = dict;
                     }
                 }
             }
@@ -161,12 +164,13 @@ namespace HamsterMall
             // --- STORE SCENE-LEVEL METADATA ON A DUMMY NODE (so Blender can see it as Custom Properties) ---
 
             var metaNode = scene.CreateNode("SceneMetadata");
-            var metaExtras = metaNode.Extras as JsonObject ?? new JsonObject();
-            metaNode.Extras = metaExtras;
+            var metaExtras = new JsonObject();
             metaExtras["backgroundColor"] = BuildVec3Array(backgroundColor);
             metaExtras["ambientColor"] = BuildVec3Array(ambientColor);
             metaExtras["rootBoundMin"] = BuildVec3Array(rootBoundMin);
             metaExtras["rootBoundMax"] = BuildVec3Array(rootBoundMax);
+            // SharpGLTF 1.0.6 Extras setter DeepClones — assign after populating.
+            metaNode.Extras = metaExtras;
 
             // 1. Inject Ref Points (Schema2.Node — has Extras property)
             var refFolder = useHierarchy ? scene.CreateNode("RefPoints") : null;
@@ -188,8 +192,7 @@ namespace HamsterMall
                 );
 
                 // Store ref point material properties as node extras
-                var rpExtras = rpNode.Extras as JsonObject ?? new JsonObject();
-                rpNode.Extras = rpExtras;
+                var rpExtras = new JsonObject();
                 rpExtras["hasColor"] = 1;
                 rpExtras["ambient"] = BuildVec4Array(rp.properties.ambient);
                 rpExtras["diffuse"] = BuildVec4Array(rp.properties.diffuse);
@@ -198,6 +201,8 @@ namespace HamsterMall
                 rpExtras["power"] = rp.properties.power;
                 rpExtras["hasReflection"] = rp.properties.hasReflection;
                 rpExtras["texture"] = rp.properties.texture ?? "";
+                // SharpGLTF 1.0.6 Extras setter DeepClones — assign after populating.
+                rpNode.Extras = rpExtras;
             }
 
             // 2. Inject Splines
@@ -278,9 +283,10 @@ namespace HamsterMall
                 }
 
                 // Store extras for MESHWORLD round-trip data that PunctualLight can't represent
-                var lightExtras = lNode.Extras as JsonObject ?? new JsonObject();
-                lNode.Extras = lightExtras;
+                var lightExtras = new JsonObject();
                 lightExtras["type"] = l.type;
+                // SharpGLTF 1.0.6 Extras setter DeepClones — assign after populating.
+                lNode.Extras = lightExtras;
 
                 // Attach real glTF PunctualLight so Blender shows an actual light
                 try
@@ -449,7 +455,7 @@ namespace HamsterMall
                     var meshBuilder = new MeshBuilder<VertexPositionNormal, VertexTexture1, VertexEmpty>(g.name);
 
                     // Use a unique material name per geom so materials with different
-                    // specular/IOR don't get merged by SceneBuilder just because they
+                    // specular don't get merged by SceneBuilder just because they
                     // share the same texture filename.
                     string matName = !string.IsNullOrEmpty(g.texture) ? g.texture : "Default";
                     if (m.geoms.Count > 1 || !string.IsNullOrEmpty(g.name))
@@ -490,12 +496,17 @@ namespace HamsterMall
                             hasReflection = g.hasReflection
                         });
 
-                        // Map specular→IOR and power→roughness for Blender slider editing
+                        // Map specular→SpecularColor/SpecularFactor and power→roughness for Blender slider editing.
+                        // Note: Blender's Specular IOR Level slider is divided by 2 on glTF import and
+                        // multiplied by 2 (capped at 1.0) on export. This means the usable slider range
+                        // for glTF round-trip is 0.0-0.5, corresponding to glTF specularFactor 0.0-1.0.
                         float specularAvg = (g.specular.X + g.specular.Y + g.specular.Z) / 3.0f;
                         float roughness = 1.0f - System.Math.Min(g.power / 100.0f, 1.0f);
-                        float ior = 1.0f + specularAvg * 4.0f;
                         material.WithMetallicRoughness(0.0f, roughness);
-                        material.IndexOfRefraction = ior;
+                        material.WithChannelParam(KnownChannel.SpecularColor, KnownProperty.RGB,
+                            new Vector3(g.specular.X, g.specular.Y, g.specular.Z));
+                        material.WithChannelParam(KnownChannel.SpecularFactor, KnownProperty.SpecularFactor,
+                            specularAvg);
                     }
 
                     // Texture Loading
