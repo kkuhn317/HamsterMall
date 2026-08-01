@@ -91,10 +91,11 @@ namespace HamsterMall
 
             var sceneBuilder = new SceneBuilder();
             var rootNode = new NodeBuilder("Level_Root");
+            var usedMaterialNames = new HashSet<string>();
 
             foreach (var m in meshes)
             {
-                BuildGLTFNode(m, rootNode, sceneBuilder, verts, inputMeshWorldPath, customTextureDir, useHierarchy, thorough, pendingMaterialExtras);
+                BuildGLTFNode(m, rootNode, sceneBuilder, verts, inputMeshWorldPath, customTextureDir, useHierarchy, thorough, pendingMaterialExtras, usedMaterialNames);
             }
 
             var model = sceneBuilder.ToGltf2();
@@ -417,7 +418,7 @@ namespace HamsterMall
 
         private static void BuildGLTFNode(mesh m, NodeBuilder parentNode, SceneBuilder sceneBuilder,
             List<Vertex> verts, string inputMeshWorldPath, string customTextureDir, bool useHierarchy,
-            bool thorough, List<MaterialExtras> pendingMaterialExtras)
+            bool thorough, List<MaterialExtras> pendingMaterialExtras, HashSet<string> usedMaterialNames)
         {
             NodeBuilder currentNode = parentNode;
 
@@ -432,7 +433,33 @@ namespace HamsterMall
                 {
                     var meshBuilder = new MeshBuilder<VertexPositionNormal, VertexTexture1, VertexEmpty>(g.name);
 
-                    var material = new MaterialBuilder(g.texture ?? "Default")
+                    // Name each material uniquely per-geom so SharpGLTF doesn't merge
+                    // distinct materials that happen to share a name.
+                    //
+                    // Background: SharpGLTF's SceneBuilder.ToGltf2() groups materials by
+                    // ContentComparer (which includes Name). When many geoms are untextured,
+                    // they previously all got the name "Default" and collapsed into ONE
+                    // Schema2.Material (the first one in the group) — silently discarding
+                    // every other geom's WithMetallicRoughness/extras. That made the
+                    // Intermediate rails (36 geoms, all untextured) come back from a
+                    // round-trip much lighter/shinier than they should be.
+                    //
+                    // Unique naming + SharpGLTF's content-based re-merge gives the best of
+                    // both worlds: identical materials still collapse to one in the GLB
+                    // (batch-editability preserved), while genuinely different materials
+                    // keep their values.
+                    string matBase = !string.IsNullOrEmpty(g.texture)
+                        ? g.texture
+                        : (!string.IsNullOrEmpty(g.name) ? g.name : "Default");
+
+                    string matName = matBase;
+                    int matSuffix = 2;
+                    while (!usedMaterialNames.Add(matName))
+                    {
+                        matName = matBase + "_" + matSuffix++;
+                    }
+
+                    var material = new MaterialBuilder(matName)
                         .WithBaseColor(g.diffuse);
 
                     // Write emissive to glTF material so exporter can read it back
@@ -448,7 +475,7 @@ namespace HamsterMall
                     {
                         pendingMaterialExtras.Add(new MaterialExtras
                         {
-                            materialName = g.texture ?? "Default",
+                            materialName = matName,
                             ambient = g.ambient,
                             specular = g.specular,
                             power = g.power,
@@ -460,7 +487,7 @@ namespace HamsterMall
                         // Non-thorough: only store what PBR can't represent
                         pendingMaterialExtras.Add(new MaterialExtras
                         {
-                            materialName = g.texture ?? "Default",
+                            materialName = matName,
                             ambient = g.ambient,
                             specular = Vector4.Zero,
                             power = 0,
@@ -552,7 +579,7 @@ namespace HamsterMall
 
             foreach (var child in m.children)
             {
-                BuildGLTFNode(child, currentNode, sceneBuilder, verts, inputMeshWorldPath, customTextureDir, useHierarchy, thorough, pendingMaterialExtras);
+                BuildGLTFNode(child, currentNode, sceneBuilder, verts, inputMeshWorldPath, customTextureDir, useHierarchy, thorough, pendingMaterialExtras, usedMaterialNames);
             }
         }
 
