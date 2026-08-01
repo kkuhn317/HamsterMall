@@ -132,15 +132,10 @@ namespace HamsterMall
             foreach (var node in Nodes)
             {
                 int startLength = 0;
-                bool REF = false;
 
                 if (node.Name.StartsWith("REF:"))
                 {
                     startLength = 4;
-                    if (node.Name.StartsWith("REF:FLAG") || node.Name.StartsWith("REF:BRIDGE") || node.Name.StartsWith("REF:SMALLFLAG"))
-                    {
-                        REF = true;
-                    }
                 }
 
                 // Strip Blender-style ".001" suffixes but preserve original dots in names
@@ -206,12 +201,14 @@ namespace HamsterMall
                     writer.Write(RotX); // Rotation X
                 }
 
-                // Check if this ref point has stored material data in its extras
+                // Check if this ref point has stored material data in its extras.
+                // Ref points only carry a material block when the node has explicit
+                // material extras — from an extract round-trip, or set manually in
+                // Blender. There is no name-based fallback: the game does not read
+                // ref point materials at runtime (verified against the binary —
+                // FLAG/BRIDGE/SMALLFLAG refs' material data is never consumed).
                 var nodeExtras = node.TryUseExtrasAsDictionary(false);
-                bool hasColor = REF;
-                // True when the node carries explicit material extras (came from an
-                // extract round-trip, or the user set them manually in Blender).
-                bool hasColorExtras = nodeExtras != null && nodeExtras.ContainsKey("hasColor");
+                bool hasColor = false;
 
                 if (nodeExtras != null && nodeExtras.ContainsKey("hasColor"))
                 {
@@ -247,40 +244,6 @@ namespace HamsterMall
                             string tex = nodeExtras["texture"] as string;
                             if (!string.IsNullOrEmpty(tex))
                                 textureName = tex;
-                        }
-                    }
-
-                    // For REF flag/bridge/smallflag nodes, also check for attached mesh texture
-                    if (REF && textureName == null && node.Mesh != null)
-                    {
-                        var Primitive = node.Mesh.Primitives;
-                        if (Primitive.Count > 0)
-                        {
-                            var tex = Primitive[0].Material?.FindChannel("BaseColor")?.Texture;
-                            if (tex != null)
-                            {
-                                textureName = tex.PrimaryImage.Name;
-                            }
-                        }
-                    }
-
-                    // For REF flag/bridge/smallflag nodes created in Blender (no extras),
-                    // derive specular/power from the attached mesh material's metallic/roughness
-                    // sliders — same mapping as the geometry path — so users can control the
-                    // flag's shininess without needing node extras.
-                    if (REF && !hasColorExtras)
-                    {
-                        var Primitive = node.Mesh?.Primitives;
-                        if (Primitive != null && Primitive.Count > 0)
-                        {
-                            var metRoughChannel = Primitive[0].Material?.FindChannel("MetallicRoughness");
-                            if (metRoughChannel != null)
-                            {
-                                float metallic = metRoughChannel.Value.Parameter.X;
-                                float roughness = metRoughChannel.Value.Parameter.Y;
-                                specular = new Vector4(metallic, metallic, metallic, 1.0f);
-                                power = Math.Max(1.0f, (1.0f - roughness) * 100.0f);
-                            }
                         }
                     }
 
