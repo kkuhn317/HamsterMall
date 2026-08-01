@@ -109,7 +109,12 @@ namespace HamsterMall
 
                 if (!node.Name.StartsWith("C:") && node.PunctualLight == null)
                 {
-                    if (node.VisualParent == null || !_folderNames.Contains(node.VisualParent.Name))
+                    // Ref points can live at the scene root (flat mode) OR under the
+                    // "RefPoints" folder (Preserve Folder Structure mode). Only skip
+                    // nodes under OTHER structural folders (Level_Root, Splines, Lights).
+                    if (node.VisualParent == null ||
+                        node.VisualParent.Name == "RefPoints" ||
+                        !_folderNames.Contains(node.VisualParent.Name))
                     {
                         if (node.VisualParent == null || !node.VisualParent.Name.StartsWith("C:"))
                         {
