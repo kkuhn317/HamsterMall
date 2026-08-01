@@ -132,10 +132,19 @@ namespace HamsterMall
             foreach (var node in Nodes)
             {
                 int startLength = 0;
+                bool REF = false;
 
                 if (node.Name.StartsWith("REF:"))
                 {
                     startLength = 4;
+                    // Ref points that carry a material the game actually renders:
+                    // FLAG/SMALLFLAG (flag cloth texture) and BRIDGE (bridge planks).
+                    // Used as a fallback when the node has no material extras —
+                    // extracted refs carry their real material via extras instead.
+                    if (node.Name.StartsWith("REF:FLAG") || node.Name.StartsWith("REF:BRIDGE") || node.Name.StartsWith("REF:SMALLFLAG"))
+                    {
+                        REF = true;
+                    }
                 }
 
                 // Strip Blender-style ".001" suffixes but preserve original dots in names
@@ -202,13 +211,14 @@ namespace HamsterMall
                 }
 
                 // Check if this ref point has stored material data in its extras.
-                // Ref points only carry a material block when the node has explicit
-                // material extras — from an extract round-trip, or set manually in
-                // Blender. There is no name-based fallback: the game does not read
-                // ref point materials at runtime (verified against the binary —
-                // FLAG/BRIDGE/SMALLFLAG refs' material data is never consumed).
+                // Extracted ref points carry their real material via extras (round-trip
+                // fidelity). For ref points WITHOUT extras, fall back on the name-based
+                // REF flag: FLAG/SMALLFLAG/BRIDGE ref points get a material block so the
+                // game renders them with the attached mesh's texture. The game reads ref
+                // point materials at runtime (FlagWaver_Render takes the ref point's
+                // material block as its render context — verified against the binary).
                 var nodeExtras = node.TryUseExtrasAsDictionary(false);
-                bool hasColor = false;
+                bool hasColor = REF;
 
                 if (nodeExtras != null && nodeExtras.ContainsKey("hasColor"))
                 {
@@ -244,6 +254,23 @@ namespace HamsterMall
                             string tex = nodeExtras["texture"] as string;
                             if (!string.IsNullOrEmpty(tex))
                                 textureName = tex;
+                        }
+                    }
+
+                    // Fallback for REF flag/bridge/smallflag nodes with no extras:
+                    // use the attached mesh's BaseColor texture as the flag texture.
+                    // The game renders flags with this texture, so a Blender-created
+                    // flag with a textured plane gets the right look in-game.
+                    if (REF && textureName == null && node.Mesh != null)
+                    {
+                        var Primitive = node.Mesh.Primitives;
+                        if (Primitive.Count > 0)
+                        {
+                            var tex = Primitive[0].Material?.FindChannel("BaseColor")?.Texture;
+                            if (tex != null)
+                            {
+                                textureName = tex.PrimaryImage.Name;
+                            }
                         }
                     }
 
