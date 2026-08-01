@@ -57,6 +57,7 @@ namespace HamsterMall
         public System.Numerics.Vector3 position;
         public System.Numerics.Vector3 rotation; // Euler angles in degrees (RotZ, RotY, RotX)
         public geom properties;
+        public bool hasColorBlock; // true if the MESHWORLD file stored a color/material block
     }
 
     public class LightObj

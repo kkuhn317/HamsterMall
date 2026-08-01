@@ -209,6 +209,9 @@ namespace HamsterMall
                 // Check if this ref point has stored material data in its extras
                 var nodeExtras = node.TryUseExtrasAsDictionary(false);
                 bool hasColor = REF;
+                // True when the node carries explicit material extras (came from an
+                // extract round-trip, or the user set them manually in Blender).
+                bool hasColorExtras = nodeExtras != null && nodeExtras.ContainsKey("hasColor");
 
                 if (nodeExtras != null && nodeExtras.ContainsKey("hasColor"))
                 {
@@ -257,6 +260,26 @@ namespace HamsterMall
                             if (tex != null)
                             {
                                 textureName = tex.PrimaryImage.Name;
+                            }
+                        }
+                    }
+
+                    // For REF flag/bridge/smallflag nodes created in Blender (no extras),
+                    // derive specular/power from the attached mesh material's metallic/roughness
+                    // sliders — same mapping as the geometry path — so users can control the
+                    // flag's shininess without needing node extras.
+                    if (REF && !hasColorExtras)
+                    {
+                        var Primitive = node.Mesh?.Primitives;
+                        if (Primitive != null && Primitive.Count > 0)
+                        {
+                            var metRoughChannel = Primitive[0].Material?.FindChannel("MetallicRoughness");
+                            if (metRoughChannel != null)
+                            {
+                                float metallic = metRoughChannel.Value.Parameter.X;
+                                float roughness = metRoughChannel.Value.Parameter.Y;
+                                specular = new Vector4(metallic, metallic, metallic, 1.0f);
+                                power = Math.Max(1.0f, (1.0f - roughness) * 100.0f);
                             }
                         }
                     }

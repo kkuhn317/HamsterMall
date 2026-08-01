@@ -174,16 +174,28 @@ namespace HamsterMall
                     rp.position
                 );
 
-                // Store ref point material properties as node extras
+                // Store ref point material properties as node extras.
+                // If the original MESHWORLD file had a color block, store all the
+                // material fields. If it did NOT, store hasColor=0 explicitly so the
+                // exporter knows this ref point had no material (round-trip fidelity —
+                // otherwise a Blender-created ref point and an extracted-but-uncolored
+                // ref point would be indistinguishable).
                 var rpExtras = rpNode.TryUseExtrasAsDictionary(true);
-                rpExtras["hasColor"] = 1;
-                rpExtras["ambient"] = BuildVec4Array(rp.properties.ambient);
-                rpExtras["diffuse"] = BuildVec4Array(rp.properties.diffuse);
-                rpExtras["specular"] = BuildVec4Array(rp.properties.specular);
-                rpExtras["emissive"] = BuildVec4Array(rp.properties.emissive);
-                rpExtras["power"] = rp.properties.power;
-                rpExtras["hasReflection"] = rp.properties.hasReflection;
-                rpExtras["texture"] = rp.properties.texture ?? "";
+                if (rp.hasColorBlock)
+                {
+                    rpExtras["hasColor"] = 1;
+                    rpExtras["ambient"] = BuildVec4Array(rp.properties.ambient);
+                    rpExtras["diffuse"] = BuildVec4Array(rp.properties.diffuse);
+                    rpExtras["specular"] = BuildVec4Array(rp.properties.specular);
+                    rpExtras["emissive"] = BuildVec4Array(rp.properties.emissive);
+                    rpExtras["power"] = rp.properties.power;
+                    rpExtras["hasReflection"] = rp.properties.hasReflection;
+                    rpExtras["texture"] = rp.properties.texture ?? "";
+                }
+                else
+                {
+                    rpExtras["hasColor"] = 0;
+                }
             }
 
             // 2. Inject Splines
@@ -343,6 +355,7 @@ namespace HamsterMall
                 int hasColor = reader.ReadInt32();
                 if (hasColor == 1)
                 {
+                    rp.hasColorBlock = true;
                     rp.properties = new geom();
                     rp.properties.ambient = ReadVector4(reader);
                     rp.properties.diffuse = ReadVector4(reader);
