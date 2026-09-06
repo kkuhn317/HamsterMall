@@ -593,10 +593,12 @@ namespace HamsterMall
                         g.emissive = Primitive.Material?.FindChannel("Emissive")?.Parameter ?? Vector4.Zero;
 
                         // Specular/power/ambient/hasReflection:
-                        // Check material extras first (thorough extraction), fall back to PBR sliders (simple mode / Blender)
+                        // Thorough extraction stores specular+power keys; simple extraction stores
+                        // only ambient+hasReflection. Check for "specular" (not "ambient") so
+                        // simple-extracted materials still use the Metallic/Roughness sliders.
                         var matExtras = Primitive.Material?.TryUseExtrasAsDictionary(false);
 
-                        if (matExtras != null && matExtras.ContainsKey("ambient"))
+                        if (matExtras != null && matExtras.ContainsKey("specular"))
                         {
                             // Thorough mode: read from material extras
                             g.ambient = ReadVec4FromExtras(matExtras, "ambient", g.diffuse);
@@ -608,7 +610,8 @@ namespace HamsterMall
                         }
                         else
                         {
-                            // Simple mode: derive from Blender's metallic/roughness sliders
+                            // Simple mode: derive from Blender's metallic/roughness sliders.
+                            // Keep ambient/hasReflection from extraction when present.
                             var metRoughChannel = Primitive.Material?.FindChannel("MetallicRoughness");
 
                             float metallic = 0.0f;
@@ -620,10 +623,16 @@ namespace HamsterMall
                                 roughness = metRoughChannel.Value.Parameter.Y;
                             }
 
-                            g.ambient = g.diffuse;
+                            if (matExtras != null && matExtras.ContainsKey("ambient"))
+                                g.ambient = ReadVec4FromExtras(matExtras, "ambient", g.diffuse);
+                            else
+                                g.ambient = g.diffuse;
                             g.specular = new Vector4(metallic, metallic, metallic, 1.0f);
                             g.power = Math.Max(1.0f, (1.0f - roughness) * 100.0f);
-                            g.hasReflection = 0;
+                            if (matExtras != null && matExtras.ContainsKey("hasReflection"))
+                                g.hasReflection = Convert.ToInt32(matExtras["hasReflection"]);
+                            else
+                                g.hasReflection = 0;
                         }
 
                         var texture = Primitive.Material?.FindChannel("BaseColor")?.Texture;
